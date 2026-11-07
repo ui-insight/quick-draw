@@ -1,0 +1,30 @@
+# Working folders, never committed
+notes/
+admin/
+
+# Real expense data stays out of the repo. Only the fake sample files are tracked.
+*.xlsx
+*.xls
+*.csv
+!**/samples/*.xlsx
+!**/samples/*.csv
+
+# OS and editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Dependencies and builds
+node_modules/
+dist/
+.cache/
+
+# Secrets and key-like files
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*credentials*
+*secret*
