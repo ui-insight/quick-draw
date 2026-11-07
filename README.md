@@ -6,7 +6,7 @@ Build drawdown justifications in your browser. Upload your expenses, a data dict
 
 Part of [AI4RA](https://ai4ra.uidaho.edu) at the University of Idaho.
 
-**Discuss, or report a problem:** tell us what you think, or what went wrong, on the [AI4RA community on Groups.io](https://groups.ai4ra.uidaho.edu/g/main).
+**Discuss, or report a problem:** tell us what you think, or what went wrong, on the [AI4RA community on Groups.io](https://groups.ai4ra.uidaho.edu/g/main). Join the [#PostAward](https://groups.ai4ra.uidaho.edu/g/main/search?q=%23PostAward&ct=1) conversation, or start a new topic with #PostAward in the subject line.
 
 ## Why
 
