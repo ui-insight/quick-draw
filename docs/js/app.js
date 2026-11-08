@@ -519,12 +519,46 @@ const renderNav = () => {
   );
 };
 
+// Each tab has its own address, such as #requirements or #dictionary/awards,
+// so a link opens it directly and Back and Forward move between tabs.
+const DICTIONARY_HASH = { dictionary: '', awards: 'awards', systems: 'systems' };
+
+const addressFor = () => {
+  const { tab, dictionaryView } = state.ui;
+  const sub = tab === 'dictionary' ? DICTIONARY_HASH[dictionaryView] : '';
+  return `#${tab}${sub ? `/${sub}` : ''}`;
+};
+
+/** Reads the tab (and dictionary sheet) from the address. Unknown addresses open Files. */
+const fromAddress = () => {
+  const [tab, sub] = decodeURIComponent(location.hash.slice(1)).toLowerCase().split('/');
+  state.ui.tab = STEPS.some((step) => step.key === tab) ? tab : 'files';
+  if (state.ui.tab === 'dictionary') {
+    state.ui.dictionaryView = Object.keys(DICTIONARY_HASH).find((view) => DICTIONARY_HASH[view] === (sub ?? '')) ?? 'dictionary';
+  }
+};
+
+/** Puts the current tab in the address: a new history entry, or replacing the current one. */
+const showAddress = (replace = false) => {
+  const address = addressFor();
+  if (location.hash === address) return;
+  if (replace) history.replaceState(null, '', address);
+  else history.pushState(null, '', address);
+};
+
 const go = (tab) => {
   state.ui.tab = tab;
+  showAddress();
   render();
   main().focus({ preventScroll: true });
   window.scrollTo({ top: 0 });
 };
+
+window.addEventListener('popstate', () => {
+  fromAddress();
+  showAddress(true);
+  render();
+});
 
 const nextButton = (tab) => {
   const next = STEPS[STEPS.findIndex((s) => s.key === tab) + 1];
@@ -843,6 +877,7 @@ const renderDictionary = () => {
       view,
       (key) => {
         state.ui.dictionaryView = key;
+        showAddress();
         renderDictionary();
       },
       { label: 'Dictionary sheets', className: 'sub-tabs' }
@@ -1436,4 +1471,6 @@ window.addEventListener('beforeunload', (event) => {
   if (unsaved) event.preventDefault();
 });
 
+fromAddress();
+showAddress(true);
 render();

@@ -27,6 +27,8 @@ The page walks you through its steps, one tab at a time:
 5. **Report.** Tabs for each sponsor, each of its draw accounts, and each award, counting the awards left to copy. For each award, pick its template if it needs a different one, read its justification, its costs and a bar chart of them, and **Copy** it into the payment system. Copy first warns about anything to fix: costs whose code is not in the dictionary, a missing goal, or text over the character limit. You can fill in an award's goal or its own code descriptions right there; they are saved to the dictionary. **Open PMS** (or whichever system the award's account uses) beside Copy opens the payment system to paste into. Download a workbook with one sheet per draw account.
 6. **Requirements.** What HHS requires, what other agencies ask for, and how Quick Draw meets it, with links to the sources and payment systems.
 
+Each tab has its own address, so you can link straight to one, for example [#requirements](https://ui-insight.github.io/quick-draw/#requirements). The others are `#files`, `#expenses`, `#dictionary` (with `#dictionary/awards` and `#dictionary/systems`), `#templates` and `#report`.
+
 You can edit both files in the page and save the changes. In Chrome and Edge, **Save** writes over the file you opened. In other browsers, download the edited file and use it in place of the old one.
 
 The app runs entirely in your browser. Your files are read on your computer and are never uploaded, and nothing is kept after you close the page. The page's security policy lets it load and connect to its own files only, so nothing it reads can be sent anywhere. Keep your dictionary workbook and bring it back the next time.
