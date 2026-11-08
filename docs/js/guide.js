@@ -787,7 +787,7 @@ const CODES_GUIDE = {
       'd-accounts',
       'Draw accounts: the columns',
       columnTable(COLUMN_HELP.accounts),
-      p('Each draw account belongs to one payment system: its own row’s, else the row with DrawAccount blank, else PMS. It goes by draw account, not sponsor, because one sponsor can use several systems. The Report’s top row of tabs groups accounts by system.')
+      p('Each draw account names its own payment system and link. It goes by draw account, not sponsor, because one sponsor can use several systems. The Report’s top row of tabs groups accounts by system, and its Open button uses the link; an account without both has no button.')
     ),
     section('d-sponsors', 'Sponsors: the columns', columnTable(COLUMN_HELP.sponsors)),
     section(
@@ -800,9 +800,9 @@ const CODES_GUIDE = {
         el('li', {}, b('Awards'), ': the award’s own. The Template menu on the Report sets it too.'),
         el('li', {}, b('Draw accounts'), ': for every award in the account.'),
         el('li', {}, b('Sponsors'), ': for every award from the sponsor.'),
-        el('li', {}, b('Sponsors, the row with Sponsor blank'), ': the default for everyone else. Without one, the first template is used.')
+        el('li', {}, b('Sponsors, the row with Sponsor blank'), ': the default for everyone else. The Default template box on the Templates tab sets it. Without one, an award with nothing else set has no justification, and the Report says so.')
       ),
-      p('Most dictionaries need only the default and a row for each sponsor with its own rules, such as DOL. Leave the rest blank. Draw accounts and sponsors in the expenses get rows added for you, so you only pick.')
+      p('Most dictionaries need only the default and a row for each sponsor with its own rules, such as DOL. Leave the rest blank. Draw accounts and sponsors in the expenses get rows added for you, and each tab’s DrawAccount, Sponsor, Award and Template cells suggest the values on the tabs to its right, so you mostly pick.')
     ),
     section(
       'd-saving',

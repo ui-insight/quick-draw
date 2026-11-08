@@ -26,14 +26,13 @@ const awards = [
   ['AWD-3001', 'ACCT-C', 'Sponsor C', '', 'monitoring soil moisture on working farms', ''],
 ];
 
-// Each draw account's payment system: ACCT-C is an ASAP account; the row with
-// DrawAccount blank puts every other account in PMS. Known systems need no URL.
+// Each draw account's payment system and the link its Open button uses: ACCT-C
+// is an ASAP account, the others are in PMS.
 const accounts = [
   ['DrawAccount', 'PaymentSystem', 'URL', 'Template'],
-  ['', 'PMS', '', ''],
-  ['ACCT-A', '', '', ''],
-  ['ACCT-B', '', '', ''],
-  ['ACCT-C', 'ASAP', '', ''],
+  ['ACCT-A', 'PMS', 'https://pms.psc.gov/', ''],
+  ['ACCT-B', 'PMS', 'https://pms.psc.gov/', ''],
+  ['ACCT-C', 'ASAP', 'https://www.asap.gov/', ''],
 ];
 
 // Which template each sponsor uses: HHS and NIH by default, the DOL format for Sponsor B.

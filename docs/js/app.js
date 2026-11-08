@@ -232,8 +232,7 @@ const addMissingAwards = (seen) => {
 
 /**
  * Adds a Draw accounts row for each account in the expenses and a Sponsors row
- * for each sponsor, so their templates can be picked, and the rows with the key
- * blank (the payment system and template for everyone else) if missing.
+ * for each sponsor, so their payment systems and templates can be filled in.
  */
 const addMissingKeys = (report) => {
   let added = false;
@@ -244,10 +243,7 @@ const addMissingKeys = (report) => {
     fileOf(name).dirty = true;
     added = true;
   };
-  if (!report.hasDefaultAccount) add('accounts', { DrawAccount: '', PaymentSystem: 'PMS' });
   for (const { account, listed } of report.accountsSeen) if (!listed) add('accounts', { DrawAccount: account }, account);
-  const first = report.templates[0];
-  if (!report.hasDefaultSponsor && first) add('sponsors', { Sponsor: '', Template: first.name || first.label });
   for (const { sponsor, listed } of report.sponsorsSeen) if (!listed) add('sponsors', { Sponsor: sponsor }, sponsor);
   return added;
 };
@@ -825,7 +821,7 @@ const DICTIONARY_VIEWS = {
   accounts: {
     label: 'Draw accounts',
     intro:
-      'Each draw account’s payment system, which its Open button goes to, and optionally a template for all its awards, which comes before their sponsors’. The row with DrawAccount blank gives the system for every account not listed.',
+      'Each draw account’s payment system and its link, which the Report’s Open button goes to, and optionally a template for all its awards, which comes before their sponsors’. Without a PaymentSystem and URL, an account has no Open button.',
   },
   sponsors: {
     label: 'Sponsors',
@@ -836,6 +832,17 @@ const DICTIONARY_VIEWS = {
 /** Template names, for the Template columns. */
 const templateNames = () => (state.report?.templates ?? []).map((t) => t.label);
 
+/** The distinct values filled in one column of a dictionary sheet, for suggesting in another. */
+const columnValues = (name, column) => {
+  if (!usable(name)) return [];
+  const values = new Map();
+  for (const record of table(name).records) {
+    const value = cellText(record[column]);
+    if (value && !values.has(value.toUpperCase())) values.set(value.toUpperCase(), value);
+  }
+  return [...values.values()].sort((a, b) => a.localeCompare(b));
+};
+
 /** Where a Draw accounts or Sponsors row applies: one account or sponsor, or every one not listed. */
 const keyScope = (name, column, others) => (index) => {
   const t = table(name);
@@ -844,21 +851,23 @@ const keyScope = (name, column, others) => (index) => {
   return key ? { text: `Only ${key}`, kind: name === 'accounts' ? 'account' : 'sponsor' } : { text: others, kind: 'general' };
 };
 
-/** The Draw accounts or Sponsors table, with an Applies to column and template names to pick from. */
+/** The Draw accounts or Sponsors table, with values to pick from the sheets to its right. */
 const keyTable = (name, flagged) => {
   const holder = el('div', { class: 'table-holder' });
-  const [column, others] = name === 'accounts' ? ['DrawAccount', 'Every other account'] : ['Sponsor', 'Every other sponsor (default)'];
+
   renderDataTable(holder, {
     name,
     table: table(name),
     columns: COLUMNS[name],
     columnHelp: COLUMN_HELP[name],
-    appliesTo: keyScope(name, column, others),
+    // Only Sponsors has a row for everyone else (its default), so only it needs Applies to.
+    appliesTo: name === 'sponsors' ? keyScope(name, 'Sponsor', 'Every other sponsor (default)') : null,
     view: state.ui.views[name],
     flagged,
     suggest: new Map([
       ['Template', templateNames()],
-      ['PaymentSystem', ['PMS', 'ASAP', 'Research.gov', 'WAWF']],
+      ['PaymentSystem', columnValues('accounts', 'PaymentSystem')],
+      ['URL', columnValues('accounts', 'URL')],
     ]),
     onEdit: (kind) => edited(name, kind),
   });
@@ -938,7 +947,12 @@ const awardsTable = (flagged) => {
     flagged,
     pinned: waitingRows('awards'),
     needs: 'Goal',
-    suggest: new Map([['Template', templateNames()]]),
+    // Values from the sheets to the right: Draw accounts, Sponsors and Templates.
+    suggest: new Map([
+      ['DrawAccount', columnValues('accounts', 'DrawAccount')],
+      ['Sponsor', columnValues('sponsors', 'Sponsor')],
+      ['Template', templateNames()],
+    ]),
     onEdit: (kind) => edited('awards', kind),
   });
   return holder;
@@ -977,7 +991,13 @@ const codesTable = (flagged) => {
     flagged,
     pinned: waiting,
     needs: 'BudgetCategory',
-    suggest: new Map([['BudgetCategory', [...[...categories].sort(), EXCLUDE]]]),
+    // Values from the sheets to the right: Awards, Draw accounts and Sponsors.
+    suggest: new Map([
+      ['BudgetCategory', [...[...categories].sort(), EXCLUDE]],
+      ['Award', columnValues('awards', 'Award')],
+      ['DrawAccount', columnValues('accounts', 'DrawAccount')],
+      ['Sponsor', columnValues('sponsors', 'Sponsor')],
+    ]),
     onEdit: (kind) => edited('dictionary', kind),
   });
   return holder;
@@ -1197,7 +1217,8 @@ const problemsWith = (account, award) => {
 };
 
 /** The payment system an account's justifications go into, from the Draw accounts sheet (PMS if it says nothing). */
-const systemName = (account) => account.paymentSystem.name;
+const NO_SYSTEM = 'No payment system';
+const systemName = (account) => account.paymentSystem?.name || NO_SYSTEM;
 
 /** Why an award's usual template is its usual one, for the Template menu. */
 const usualNote = (usual) => (usual.source === 'default' ? 'default' : `for ${usual.scope}`);
@@ -1228,6 +1249,7 @@ const copyJustification = async (account, award) => {
 /** The button that opens where this account's payment requests go, from the Draw accounts sheet. */
 const systemLink = (account) => {
   const system = account.paymentSystem;
+  if (!system?.url) return null;
   return el(
     'a',
     {
@@ -1235,7 +1257,7 @@ const systemLink = (account) => {
       href: system.url,
       target: '_blank',
       rel: 'noopener',
-      title: `Open ${system.name} in a new tab, to paste the justification. Set each account’s payment system on the Draw accounts tab of the data dictionary.`,
+      title: `Open ${system.name} (${system.url}) in a new tab, to paste the justification. The link comes from the Draw accounts tab of the data dictionary.`,
     },
     `Open ${system.name} ↗`
   );
@@ -1389,7 +1411,8 @@ const renderReport = () => {
 
   // Payment system › draw account › award, each its own row of tabs: the order
   // you work in, signing in to a system, opening an account, then each award.
-  const systems = [...new Set(report.accounts.map(systemName))];
+  // Accounts with no payment system go last.
+  const systems = [...new Set(report.accounts.map(systemName))].sort((x, y) => (x === NO_SYSTEM) - (y === NO_SYSTEM));
   if (!systems.includes(state.ui.system)) state.ui.system = systems[0];
   const accounts = report.accounts.filter((a) => systemName(a) === state.ui.system);
   if (!accounts.some((a) => a.key === state.ui.account)) state.ui.account = accounts[0].key;

@@ -107,12 +107,12 @@ Templates write the goal with `{{ goal }}`. An award without one gets the marker
 
 | Column | Required | What it holds |
 |---|---|---|
-| `DrawAccount` | no | The payment-system account. Leave it blank on one row to give the system for every account not listed. |
-| `PaymentSystem` | no | Where the account requests payment, such as PMS, ASAP, Research.gov or WAWF. Blank uses the row with `DrawAccount` blank, else PMS. |
-| `URL` | no | The link the **Open** button goes to. Needed only for a system other than PMS, ASAP, Research.gov or WAWF. |
+| `DrawAccount` | yes | The payment-system account, as in the expenses |
+| `PaymentSystem` | no | Where the account requests payment, such as PMS or ASAP. It names the account's tab on the Report and its **Open** button. |
+| `URL` | no | The link the **Open** button goes to, starting with `https://`. Without a `PaymentSystem` and `URL`, the account has no button. |
 | `Template` | no | The template every award in this account uses, ahead of its sponsor's |
 
-Each draw account belongs to one payment system. This goes by draw account, not sponsor, because one sponsor can use several systems: within DoD, ONR takes payment requests through WAWF while other offices use PMS, and within USDA, NIFA uses ASAP. The Report tab's top row of tabs groups draw accounts by system. The sample puts ACCT-C in [ASAP](https://www.asap.gov/) and everything else in [PMS](https://pms.psc.gov/).
+Each draw account names its own payment system and link; Quick Draw has no built-in list of systems or links. This goes by draw account, not sponsor, because one sponsor can use several systems: within DoD, ONR takes payment requests through WAWF while other offices use PMS, and within USDA, NIFA uses ASAP. The Report tab's top row of tabs groups draw accounts by system. The sample puts ACCT-C in [ASAP](https://www.asap.gov/) and everything else in [PMS](https://pms.psc.gov/).
 
 #### Sponsors sheet
 
@@ -121,7 +121,7 @@ Each draw account belongs to one payment system. This goes by draw account, not 
 | `Sponsor` | no | The sponsor. Leave it blank on one row for the default. |
 | `Template` | no | The template this sponsor's awards use. On the row with `Sponsor` blank, the default template for everyone. |
 
-Draw accounts and sponsors found in the expenses get rows added for you, so you only pick templates. The sample's default is HHS and NIH, and Sponsor B uses DOL VETS.
+Draw accounts and sponsors found in the expenses get rows added for you. Each tab's `DrawAccount`, `Sponsor`, `Award` and `Template` cells suggest the values on the tabs to its right (Cost codes from Awards, Draw accounts and Sponsors; Awards from Draw accounts, Sponsors and Templates), so you mostly pick. The sample's default is HHS and NIH, and Sponsor B uses DOL VETS.
 
 #### Which template an award uses
 
@@ -130,7 +130,7 @@ Awards, Draw accounts and Sponsors each have a `Template` column. The first one 
 1. The award's own, on the Awards sheet. The Template menu on the Report tab sets it too.
 2. Its draw account's, on the Draw accounts sheet.
 3. Its sponsor's, on the Sponsors sheet.
-4. The default: the Sponsors row with `Sponsor` blank, which the **Default template** box on the Templates tab sets. Without one, the first template is used.
+4. The default: the Sponsors row with `Sponsor` blank, which the **Default template** box on the Templates tab sets. Without one, an award with nothing else set has no justification, and the Report says so.
 
 The Report's menu shows where the usual one comes from, such as "DOL VETS (for Sponsor B)" or "HHS and NIH (default)", and the Templates tab says who uses each template. Awards in one draw account can have different sponsors, and so different templates. Renaming a template updates the `Template` cells that name it.
 

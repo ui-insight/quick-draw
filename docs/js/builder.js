@@ -303,7 +303,7 @@ export const renderTemplates = (container, app) => {
     ui.templateRow,
     (key) => {
       // "+ New template" always adds a blank one; to start from an existing template, open it and use Add as new template.
-      if (key === 'new') addTemplate({ Name: uniqueName('New template'), Template: '', MaxLength: '1000' });
+      if (key === 'new') addTemplate({ Name: uniqueName('New template'), Template: '' });
       else {
         ui.templateRow = key;
         rerender();
