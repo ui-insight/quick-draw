@@ -42,6 +42,8 @@ export const COLUMNS = {
     { name: 'Name', required: true },
     { name: 'URL', required: true },
     { name: 'DrawAccount' },
+    // Read only to warn that older files' Sponsor column is no longer used.
+    { name: 'Sponsor', retired: true },
   ],
   templates: [
     { name: 'Name' },
@@ -467,6 +469,7 @@ export const COLUMN_HELP = {
     Name: 'What to call the system on each award’s button, such as PMS or Research.gov.',
     URL: 'The address the button opens, starting with https://.',
     DrawAccount: 'The draw account that requests payment through this system. Leave blank on one row to cover every other account.',
+    Sponsor: 'No longer used: one sponsor can draw through several systems, so each draw account names its own. Clear this column.',
   },
   expenses: {
     Award: 'The award or grant this cost belongs to.',
@@ -861,9 +864,31 @@ const readSystems = (records, warn) => {
       continue;
     }
     const system = { name: name || url, url, account: cellText(record.DrawAccount), row: record.row };
-    list.push(system);
+    const label = `Row ${record.row} (${system.name})`;
+    // Older files chose a system by sponsor too; one agency can use several systems, so that is gone.
+    const sponsor = cellText(record.Sponsor);
+    if (sponsor) {
+      warn(
+        system.account
+          ? `${label} has Sponsor ${sponsor}, which is ignored: payment systems go by draw account, since one sponsor can use several. Clear the Sponsor cell.`
+          : `${label} has Sponsor ${sponsor}, which is ignored: payment systems go by draw account, since one sponsor can use several. Put the draw account in DrawAccount instead.`,
+        record.row
+      );
+      if (!system.account) continue;
+    }
     const key = scopeKey(system.account, '');
-    if (!byScope.has(key)) byScope.set(key, system);
+    if (byScope.has(key)) {
+      const first = byScope.get(key);
+      warn(
+        system.account
+          ? `${label} repeats draw account ${system.account}, so it is ignored; row ${first.row} (${first.name}) is used.`
+          : `${label} also has DrawAccount blank, so it is ignored; row ${first.row} (${first.name}) covers every account not named.`,
+        record.row
+      );
+      continue;
+    }
+    list.push(system);
+    byScope.set(key, system);
   }
   const forAccount = (account) => scopesFor(account, '').map((scope) => byScope.get(scope)).find(Boolean) ?? null;
   return { list, forAccount };

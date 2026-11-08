@@ -361,6 +361,20 @@ test('each draw account has one payment system: its own row, else the row with n
   assert.match(report.warnings.map((w) => w.text).join('\n'), /Row 5 \(Bad\) needs a URL starting with https/);
 });
 
+test('an older Payment systems sheet with a Sponsor column says what changed', () => {
+  const report = buildReport({
+    expenses: csv('Award,DrawAccount,Sponsor,CostCode,Cost\nA1,X,NSF,C1,1', 'expenses'),
+    dictionary: csv('CostCode,BudgetCategory\nC1,Travel', 'dictionary'),
+    templates: csv('Default,Template\nTRUE,ok', 'templates'),
+    systems: csv('Name,URL,DrawAccount,Sponsor\nPMS,https://pms.psc.gov/,,\nResearch.gov,https://www.research.gov/,,NSF\nASAP,https://www.asap.gov/,,', 'systems'),
+  });
+  assert.equal(report.accounts[0].paymentSystem.name, 'PMS');
+  const text = report.warnings.filter((w) => w.area === 'systems').map((w) => w.text).join('\n');
+  assert.match(text, /Row 3 \(Research\.gov\) has Sponsor NSF, which is ignored: payment systems go by draw account/);
+  assert.match(text, /Row 4 \(ASAP\) also has DrawAccount blank, so it is ignored/);
+  assert.deepEqual(report.paymentSystems.map((s) => s.name), ['PMS']);
+});
+
 test('the sample sends ACCT-C to ASAP and the rest to PMS', () => {
   assert.deepEqual(sampleReport().accounts.map((a) => a.paymentSystem), [
     { name: 'PMS', url: 'https://pms.psc.gov/' },

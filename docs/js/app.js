@@ -101,7 +101,7 @@ const table = (name) => fileOf(name)?.tables[name] ?? null;
 const usable = (name) => Boolean(table(name) && !table(name).error && !fileOf(name).error);
 const ready = () => usable('expenses') && usable('dictionary');
 
-const headerGrid = (name) => [COLUMNS[name].map((c) => c.name)];
+const headerGrid = (name) => [COLUMNS[name].filter((c) => !c.retired).map((c) => c.name)];
 
 const hasRows = (t) => {
   const { headerIndex } = tableLayout(t.grid, []);
@@ -386,7 +386,8 @@ const chooseFile = async (key) => {
 
 const loadSamples = async () => {
   for (const [key, info] of Object.entries(FILES)) {
-    const response = await fetch(info.sample);
+    // Always the current samples, not a copy the browser kept.
+    const response = await fetch(info.sample, { cache: 'no-cache' });
     await readFile(key, new File([await response.blob()], info.sample.split('/').pop()));
   }
 };
@@ -772,7 +773,7 @@ const DICTIONARY_VIEWS = {
   systems: {
     label: 'Payment systems',
     intro:
-      'Where payment requests go, and the link each award’s Open button uses on the Report tab. Leave DrawAccount and Sponsor blank for the system most awards use; add a row for a sponsor or account that draws somewhere else, such as NSF in Research.gov.',
+      'Which payment system each draw account uses, and the link its Open button goes to on the Report tab. Leave DrawAccount blank on one row for the system most accounts use, and add a row for each account that draws somewhere else, such as an ASAP account.',
   },
 };
 
