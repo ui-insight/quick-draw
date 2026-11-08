@@ -1,0 +1,12 @@
+{
+  "name": "quick-draw",
+  "private": true,
+  "description": "Build drawdown justifications in your browser.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "serve": "python3 scripts/serve.py",
+    "samples": "node scripts/build-samples.js"
+  }
+}

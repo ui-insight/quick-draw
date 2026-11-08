@@ -19,3 +19,21 @@ License, Version 2.0. Any redistribution of this work, or of a derivative
 work, must include a readable copy of the attribution notices above, crediting
 all of the following: Nathan Layman as the author, the University of
 Idaho, the AI4RA project, and National Science Foundation award 2427549.
+
+------------------------------------------------------------------------
+Third-party software
+
+Quick Draw includes copies of the following open source libraries, in
+docs/vendor/, so the page loads nothing from other sites. Each is
+unmodified and remains under its own license and copyright; its license
+file is included beside it.
+
+ExcelJS 4.4.0 (reading and writing Excel workbooks)
+  Copyright (c) 2014-2019 Guyon Roche
+  MIT License - https://github.com/exceljs/exceljs/blob/master/LICENSE
+  docs/vendor/exceljs.min.js, license in docs/vendor/exceljs.LICENSE
+
+Plotly.js 4.1.2, basic bundle (charts)
+  Copyright (c) 2016-2024 Plotly Technologies Inc.
+  MIT License - https://github.com/plotly/plotly.js/blob/master/LICENSE
+  docs/vendor/plotly-basic.min.js, license in docs/vendor/plotly.LICENSE
