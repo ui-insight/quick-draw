@@ -478,7 +478,6 @@ export const renderTemplates = (container, app) => {
           class: 'button small secondary',
           title: example.source,
           onclick: () => {
-            if (text.trim() && text !== example.text && !confirm('Replace the whole template with this one?')) return;
             changed(example.text);
             if (!limitInput.value && example.maxLength) app.setCell(current.index, 'MaxLength', String(example.maxLength));
             rerender();
