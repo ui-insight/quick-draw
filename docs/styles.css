@@ -802,15 +802,22 @@ details.help > summary {
   flex: 0 1 130px;
 }
 
+
+/* "Default template", beside the Builder and Jinja tabs. */
 .default-check {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 6px;
-  flex: none;
-  height: 38px;
-  font-size: 0.85rem;
+  margin-left: 6px;
+  font-size: 0.88rem;
   font-weight: 600;
+  color: var(--muted);
   cursor: pointer;
+}
+
+.default-check.is-default {
+  color: var(--text);
+  cursor: default;
 }
 
 .default-check input {
@@ -818,6 +825,12 @@ details.help > summary {
   height: 16px;
   margin: 0;
   accent-color: var(--accent);
+}
+
+/* Who uses a template, under its settings. */
+.used-by {
+  margin: -6px 0 16px;
+  color: var(--muted);
 }
 
 /* A column edited elsewhere: shown, not typed in. */

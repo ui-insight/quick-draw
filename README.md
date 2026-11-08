@@ -27,7 +27,7 @@ The page walks you through its steps, one tab at a time:
 5. **Report.** Tabs for each payment system, each draw account in it, and each award, counting the awards left to copy: the order you work in, signing in to a system, opening an account, then entering each award. For each award, pick its template if it needs a different one, read its justification, its costs and a bar chart of them, and **Copy** it into the payment system. Copy first warns about anything to fix: costs whose code is not in the dictionary, a missing goal, or text over the character limit. You can fill in an award's goal or its own code descriptions right there; they are saved to the dictionary. **Open PMS** (or whichever system the award's account uses) beside Copy opens the payment system to paste into. Download a workbook with one sheet per draw account.
 6. **Help.** What HHS requires and how Quick Draw meets it, with links to the sources and payment systems; how the data dictionary works; writing templates; and what to export.
 
-Each tab has its own address, so you can link straight to one, for example [#help](https://ui-insight.github.io/quick-draw/#help). The others are `#files`, `#expenses`, `#dictionary` (with `#dictionary/awards` and `#dictionary/systems`), `#templates` and `#report`. Help has a page for each topic: `#help/dictionary`, `#help/templates`, `#help/export` and `#help/glossary` (`#requirements` still opens Help). The Glossary button in the header opens the glossary from any tab.
+Each tab has its own address, so you can link straight to one, for example [#help](https://ui-insight.github.io/quick-draw/#help). The others are `#files`, `#expenses`, `#dictionary` (with `#dictionary/awards`, `#dictionary/accounts` and `#dictionary/sponsors`), `#templates` and `#report`. Help has a page for each topic: `#help/dictionary`, `#help/templates`, `#help/export` and `#help/glossary` (`#requirements` still opens Help). The Glossary button in the header opens the glossary from any tab.
 
 You can edit both files in the page and save the changes. In Chrome and Edge, **Save** writes over the file you opened. In other browsers, download the edited file and use it in place of the old one.
 
@@ -62,9 +62,12 @@ An Excel workbook with these sheets. Quick Draw finds each one by its columns, s
 |---|---|
 | **Read me** | Explains the workbook: what each sheet and column means, how Quick Draw picks a category, description and template, what templates can use, and a glossary. Quick Draw skips it, and adds one when you save a workbook that has none. |
 | **Cost codes** | Which sponsor budget category each cost code belongs to, with a plain-language description |
-| **Awards** | Each award's sponsor, draw account and short goal, and the template it uses if not its usual one |
+| **Awards** | Each award's draw account, sponsor and short goal, and optionally its template |
+| **Draw accounts** | Each draw account's payment system, with the link its **Open** button uses, and optionally a template for all its awards |
+| **Sponsors** | The template each sponsor's awards use; the row with `Sponsor` blank is the default |
 | **Templates** | The justification wording, as many versions as you like |
-| **Payment systems** | Which payment system each draw account uses, with the link its **Open** button uses |
+
+The Data dictionary tab shows them from most to least specific: Cost codes, Awards, Draw accounts, Sponsors. An award sits in one draw account; a sponsor is a broader grouping that can span accounts. Templates have their own tab.
 
 A CSV file also works as a dictionary, but it can only hold the cost codes. If you add goals or templates to one, it is saved as a workbook.
 
@@ -90,15 +93,48 @@ Quick Draw also warns you when two category names differ only by spacing, punctu
 | Column | Required | What it holds |
 |---|---|---|
 | `Award` | yes | The award identifier, matching the expenses file |
-| `Sponsor` | no | The award's sponsor, used when the expenses don't give one |
 | `DrawAccount` | no | The award's draw account, used when the expenses don't give one |
+| `Sponsor` | no | The award's sponsor, used when the expenses don't give one |
 | `Program` | no | The award's program name, for agencies that ask for it, such as DOL. Templates write it with `{{ program }}`. |
 | `Goal` | no | A few words on what the award is for, such as "mapping groundwater recharge in the upper basin" |
-| `Template` | no | The `Name` of the template this award uses instead of its usual one. Set it with the Template menu on the Report tab; it is read-only on the Data dictionary tab. |
+| `Template` | no | The `Name` of the template this award uses, ahead of its draw account's and sponsor's. The Template menu on the Report tab sets it too. |
 
 With `Sponsor` and `DrawAccount` here, the expenses file can be as simple as `Award`, `CostCode` and `Cost`. When the expenses do give them and they differ, the expenses win and you are warned. Awards in the expenses that this sheet lacks are added for you, with their sponsor and draw account filled in and the empty goal highlighted.
 
 Templates write the goal with `{{ goal }}`. An award without one gets the marker `[describe the award's goal]`, and the Report tab flags it until you fill it in.
+
+#### Draw accounts sheet
+
+| Column | Required | What it holds |
+|---|---|---|
+| `DrawAccount` | no | The payment-system account. Leave it blank on one row to give the system for every account not listed. |
+| `PaymentSystem` | no | Where the account requests payment, such as PMS, ASAP, Research.gov or WAWF. Blank uses the row with `DrawAccount` blank, else PMS. |
+| `URL` | no | The link the **Open** button goes to. Needed only for a system other than PMS, ASAP, Research.gov or WAWF. |
+| `Template` | no | The template every award in this account uses, ahead of its sponsor's |
+
+Each draw account belongs to one payment system. This goes by draw account, not sponsor, because one sponsor can use several systems: within DoD, ONR takes payment requests through WAWF while other offices use PMS, and within USDA, NIFA uses ASAP. The Report tab's top row of tabs groups draw accounts by system. The sample puts ACCT-C in [ASAP](https://www.asap.gov/) and everything else in [PMS](https://pms.psc.gov/).
+
+#### Sponsors sheet
+
+| Column | Required | What it holds |
+|---|---|---|
+| `Sponsor` | no | The sponsor. Leave it blank on one row for the default. |
+| `Template` | no | The template this sponsor's awards use. On the row with `Sponsor` blank, the default template for everyone. |
+
+Draw accounts and sponsors found in the expenses get rows added for you, so you only pick templates. The sample's default is HHS and NIH, and Sponsor B uses DOL VETS.
+
+#### Which template an award uses
+
+Awards, Draw accounts and Sponsors each have a `Template` column. The first one filled in wins, from most to least specific:
+
+1. The award's own, on the Awards sheet. The Template menu on the Report tab sets it too.
+2. Its draw account's, on the Draw accounts sheet.
+3. Its sponsor's, on the Sponsors sheet.
+4. The default: the Sponsors row with `Sponsor` blank, which the **Default template** box on the Templates tab sets. Without one, the first template is used.
+
+The Report's menu shows where the usual one comes from, such as "DOL VETS (for Sponsor B)" or "HHS and NIH (default)", and the Templates tab says who uses each template. Awards in one draw account can have different sponsors, and so different templates. Renaming a template updates the `Template` cells that name it.
+
+Workbooks from older versions of Quick Draw are brought up to date when you open them: their Payment systems sheet becomes Draw accounts, and the `Default`, `DrawAccount` and `Sponsor` columns on the Templates sheet move to the Draw accounts and Sponsors sheets. A notice says what moved; save to keep it.
 
 #### Templates sheet
 
@@ -106,10 +142,7 @@ One row per template.
 
 | Column | Required | What it holds |
 |---|---|---|
-| `Name` | no | A name to pick the template by. Without one, it is called by its draw account or sponsor, or "Default". |
-| `Default` | no | `TRUE` on the one template every award uses unless something more specific applies. The **Default** box on the Templates tab sets it. |
-| `DrawAccount` | no | Awards in this draw account use this template instead of the default |
-| `Sponsor` | no | This sponsor's awards use this template instead of the default, unless their draw account has its own |
+| `Name` | no | The name the `Template` columns pick it by |
 | `Template` | yes | The justification text, in [Jinja](https://jinja.palletsprojects.com/en/stable/templates/) syntax |
 | `MaxLength` | no | The payment system's character limit, such as 1000. Justifications over it are flagged. |
 | `Fallback` | no | The `Name` of a shorter template to use for an award whose justification would run over `MaxLength`. The Report tab says when it was used. |
@@ -125,28 +158,9 @@ The sample dictionary comes with templates shaped by each agency's stated requir
 | **DOL VETS** | [DOL VETS Grant Officer's Memorandum 02-26](https://www.dol.gov/sites/dolgov/files/VETS/files/GO_Memo_02-26_PMS_Mandatory_Payment_Justification.pdf) (2026) | The program, the period, and each category with its amount, adding up to the total |
 | **NASA** | [NASA Grant Information Circular 25-01](https://www.nasa.gov/wp-content/uploads/2025/06/gic-25-01-grant-payment-justifications.pdf) (2025) | The amount requested, the approved budget categories, and why |
 
-#### Payment systems sheet
-
-| Column | Required | What it holds |
-|---|---|---|
-| `Name` | yes | What the button says, such as PMS or Research.gov |
-| `URL` | yes | The address to open, starting with `https://` |
-| `DrawAccount` | no | The draw account that uses this system. Leave it blank on one row to cover every other account. |
-
-Each draw account belongs to one payment system: the row naming it, else the row with `DrawAccount` blank. This goes by draw account, not sponsor, because one agency can use several systems: within DoD, ONR takes payment requests through WAWF while other offices use PMS, and within USDA, NIFA uses ASAP. The Report tab's top row of tabs groups draw accounts by system. A dictionary without this sheet links to PMS. The sample sends ACCT-C to [ASAP](https://www.asap.gov/) and everything else to [PMS](https://pms.psc.gov/).
-
-#### Which template an award uses
-
-1. The one picked for it with the Template menu on the Report tab, which is saved in the `Template` column of the Awards sheet.
-2. Else its draw account's template.
-3. Else its sponsor's template.
-4. Else the template marked **Default**.
-
-The menu shows where the usual one comes from, such as "DOL VETS (for Sponsor B)" or "HHS and NIH (default)", and choosing it clears the award's own choice. Awards in one draw account can have different sponsors, and so different templates. A dictionary from before the `Default` column uses the first template with no draw account or sponsor, and says so.
-
 #### The template builder
 
-The Templates tab has two views of the same template. **Builder** shows each value, loop and condition as a labeled block, such as *Award* or *For each category*: drag blocks in from the list, or click one to add it at the cursor, and type your own words around them. A loop is a single block: click it to open a window where you write the text once for one item, choose what goes between items, before the last one ("and") and when there are none, and see the whole list previewed. A loop inside a loop is a block in that window, so you drill down one level at a time. **Jinja** shows the text that is saved in the file. Below the editor, Quick Draw names any mistake and where it is, and previews the result for any award with its character count. The tab's **How to write a template** section explains everything below with examples.
+The Templates tab has two views of the same template. **Builder** shows each value, loop and condition as a labeled block, such as *Award* or *For each category*: drag blocks in from the list, or click one to add it at the cursor, and type your own words around them. A loop is a single block: click it to open a window where you write the text once for one item, choose what goes between items, before the last one ("and") and when there are none, and see the whole list previewed. A loop inside a loop is a block in that window, so you drill down one level at a time. **Jinja** shows the text that is saved in the file. Below the editor, Quick Draw names any mistake and where it is, and previews the result for any award with its character count. **Help › Templates** explains everything below with examples.
 
 #### What a template can use
 

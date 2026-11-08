@@ -15,7 +15,6 @@ import {
 import { scan } from './jinja.js';
 import { SNIPPET_TYPE, visualEditor } from './blocks.js';
 import { openLoopDialog } from './loops.js';
-import { openGuide } from './guide.js';
 import { confirmWindow, el, fill, insertAtCaret, notice, tabStrip } from './dom.js';
 
 // ------------------------------------------------------------- blocks
@@ -189,19 +188,16 @@ const templateRows = (table) => {
     const row = table.grid[r] ?? [];
     if (row.every((v) => cellText(v) === '')) continue;
     const get = (name) => (name in positions ? cellText(row[positions[name]]) : '');
-    let label = templateLabel(get('Name'), get('DrawAccount'), get('Sponsor'));
+    let label = templateLabel(get('Name'));
     if (seen.has(label.toUpperCase())) label = `${label} (row ${r + 1})`;
     seen.add(label.toUpperCase());
     rows.push({
       index: r,
       label,
       name: get('Name'),
-      account: get('DrawAccount'),
-      sponsor: get('Sponsor'),
       text: get('Template'),
       maxLength: get('MaxLength'),
       fallback: get('Fallback'),
-      isDefault: /^(true|yes|y|x|1|✓|✔)$/i.test(get('Default')),
     });
   }
   return rows;
@@ -217,10 +213,58 @@ const previewChoices = (report, index) => {
 let disposeEditor = () => {};
 
 /**
+ * "Default template": ticking it makes this the template every award uses
+ * unless something more specific names one. It writes the Sponsors row with
+ * Sponsor blank. To change the default, tick it on another template.
+ */
+const defaultCheck = (app, current) => {
+  const isDefault = Boolean(app.report?.templates.find((t) => t.row === current.index + 1)?.usedBy.default);
+  const box = el('input', { type: 'checkbox', id: 'template-default', checked: isDefault, disabled: !current.name });
+  // There is always a default, so unticking does nothing: tick another template instead.
+  box.addEventListener('change', () => (isDefault ? (box.checked = true) : app.setDefaultTemplate(current.name)));
+  return el(
+    'label',
+    {
+      class: `default-check${isDefault ? ' is-default' : ''}`,
+      for: 'template-default',
+      title: isDefault
+        ? 'This is the default: every award uses it unless the award, its draw account or its sponsor names another. To change the default, tick this box on another template. It is kept on the Sponsors tab, on the row with Sponsor blank.'
+        : current.name
+          ? 'Make this the default: every award uses it unless the award, its draw account or its sponsor names another. Kept on the Sponsors tab, on the row with Sponsor blank.'
+          : 'Name this template first.',
+    },
+    box,
+    'Default template'
+  );
+};
+
+/** Who uses a template, from the data dictionary's Template columns. */
+const usedByLine = (report, current) => {
+  const used = report?.templates.find((t) => t.row === current.index + 1)?.usedBy;
+  if (!used) return null;
+  const who = [
+    used.default ? 'the default' : null,
+    ...used.sponsors.map((s) => `sponsor ${s}`),
+    ...used.accounts.map((a) => `draw account ${a}`),
+    ...used.awards.map((a) => `award ${a}`),
+  ].filter(Boolean);
+  return el(
+    'p',
+    {
+      class: 'used-by small',
+      title:
+        'Which template an award uses is set in the data dictionary: the Template column on Awards, else Draw accounts, else Sponsors. The Sponsors row with Sponsor blank is the default.',
+    },
+    who.length ? [el('strong', {}, 'Used by: '), who.join(' · ')] : 'Not used yet. Pick it in a Template column on the Data dictionary tab (Awards, Draw accounts or Sponsors), or on the Report.'
+  );
+};
+
+/**
  * Renders the Templates tab.
  *
- * app: { table, report, ui, warnings, accounts[], setCell(index, column, value),
- *        addRow(values) -> index, deleteRow(index), onEdit() }
+ * app: { table, report, ui, warnings, setCell(index, column, value),
+ *        renameTemplate(from, to), setDefaultTemplate(name), addRow(values) -> index,
+ *        deleteRow(index), onEdit() }
  */
 export const renderTemplates = (container, app) => {
   disposeEditor();
@@ -277,32 +321,12 @@ export const renderTemplates = (container, app) => {
     return;
   }
 
-  // Name, account and limit.
-  const nameInput = el('input', { type: 'text', id: 'template-name', value: current.name, placeholder: current.account || current.sponsor || 'Default', spellcheck: false });
+  // Name and limit. Who uses the template is set on the data dictionary's sheets.
+  const nameInput = el('input', { type: 'text', id: 'template-name', value: current.name, placeholder: 'Name this template', spellcheck: false });
   nameInput.addEventListener('change', () => {
-    app.setCell(current.index, 'Name', nameInput.value.trim());
-    app.onEdit();
-    rerender();
-  });
-  const listId = 'template-accounts';
-  const accountInput = el('input', { type: 'text', id: 'template-account', value: current.account, placeholder: 'Any account', spellcheck: false });
-  accountInput.setAttribute('list', listId);
-  accountInput.addEventListener('change', () => {
-    app.setCell(current.index, 'DrawAccount', accountInput.value.trim());
-    app.onEdit();
-    rerender();
-  });
-  const sponsorInput = el('input', { type: 'text', id: 'template-sponsor', value: current.sponsor, placeholder: 'Any sponsor', spellcheck: false });
-  sponsorInput.setAttribute('list', 'template-sponsors');
-  sponsorInput.addEventListener('change', () => {
-    app.setCell(current.index, 'Sponsor', sponsorInput.value.trim());
-    app.onEdit();
-    rerender();
-  });
-  // One Default: ticking it here unticks the others.
-  const defaultBox = el('input', { type: 'checkbox', id: 'template-default', checked: current.isDefault });
-  defaultBox.addEventListener('change', () => {
-    for (const r of rows) app.setCell(r.index, 'Default', r.index === current.index && defaultBox.checked ? 'TRUE' : '');
+    const name = nameInput.value.trim();
+    app.renameTemplate(current.name, name);
+    app.setCell(current.index, 'Name', name);
     app.onEdit();
     rerender();
   });
@@ -317,30 +341,6 @@ export const renderTemplates = (container, app) => {
     'div',
     { class: 'template-settings' },
     el('div', { class: 'field' }, el('label', { for: 'template-name' }, 'Name'), nameInput),
-    el(
-      'label',
-      {
-        class: 'default-check',
-        for: 'template-default',
-        title: 'Every award uses the Default template, unless its draw account or sponsor has its own or you pick another for it on the Report tab. Only one template is the Default.',
-      },
-      defaultBox,
-      'Default'
-    ),
-    el(
-      'div',
-      { class: 'field' },
-      el('label', { for: 'template-account', title: 'Awards in this draw account use this template instead of the default, unless you pick another for an award on the Report tab.' }, 'Draw account'),
-      accountInput,
-      el('datalist', { id: listId }, app.accounts.map((a) => el('option', { value: a })))
-    ),
-    el(
-      'div',
-      { class: 'field' },
-      el('label', { for: 'template-sponsor', title: 'This sponsor’s awards use this template instead of the default, unless their draw account has its own or you pick another on the Report tab.' }, 'Sponsor'),
-      sponsorInput,
-      el('datalist', { id: 'template-sponsors' }, (app.sponsors ?? []).map((a) => el('option', { value: a })))
-    ),
     el('div', { class: 'field narrow' }, el('label', { for: 'template-limit' }, 'Character limit'), limitInput),
     el(
       'div',
@@ -584,17 +584,7 @@ export const renderTemplates = (container, app) => {
         'div',
         { class: 'view-and-help' },
         viewTabs,
-        el(
-          'button',
-          {
-            type: 'button',
-            class: 'help-button',
-            'aria-label': 'Guide to writing templates',
-            title: 'Guide to writing templates',
-            onclick: () => openGuide('templates'),
-          },
-          '?'
-        )
+        defaultCheck(app, current)
       )
     ),
     editorNode,
@@ -608,7 +598,7 @@ export const renderTemplates = (container, app) => {
     )
   );
 
-  parts.push(el('div', { class: 'template-panel', role: 'tabpanel' }, settings, el('div', { class: 'builder' }, palette, editorColumn)));
+  parts.push(el('div', { class: 'template-panel', role: 'tabpanel' }, settings, usedByLine(app.report, current), el('div', { class: 'builder' }, palette, editorColumn)));
   fill(container, ...parts);
   updatePreview();
   updateDraftBar();

@@ -9,6 +9,7 @@ import {
   COLUMNS,
   COLUMN_HELP,
   DICTIONARY_SHEETS,
+  DICTIONARY_TABLES,
   EXCLUDE,
   GOAL_MARKER,
   README_SHEET,
@@ -18,6 +19,7 @@ import {
   defaultFilename,
   formatDay,
   formatMoney,
+  migrateDictionary,
   readMeRows,
   readTable,
   tableLayout,
@@ -27,7 +29,7 @@ import { buildWorkbook, readSheets, writeXlsx } from './workbook.js';
 import { renderDataTable } from './datatable.js';
 import { renderTemplates } from './builder.js';
 import { drawCostChart } from './chart.js';
-import { PAYMENT_SYSTEMS, openGuide, renderGuidePage } from './guide.js';
+import { openGuide, renderGuidePage } from './guide.js';
 import { $, downloadBytes, el, fill, installTooltips, notice, plural, tabStrip } from './dom.js';
 
 const XLSX_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
@@ -40,7 +42,7 @@ const FILES = {
   },
   dictionary: {
     title: 'Data dictionary',
-    about: 'An Excel workbook with Cost codes (each code’s budget category), Awards (each award’s goal), Templates (the justification wording) and Payment systems (where requests go).',
+    about: 'An Excel workbook with Cost codes (each code’s budget category), Awards (each award’s goal), Draw accounts (each account’s payment system), Sponsors (which template each uses) and Templates (the justification wording).',
     sample: 'samples/dictionary.xlsx',
     canStartEmpty: true,
   },
@@ -51,8 +53,9 @@ const TABLES = {
   expenses: { file: 'expenses', title: 'Expenses' },
   dictionary: { file: 'dictionary', title: 'Cost codes' },
   awards: { file: 'dictionary', title: 'Awards' },
+  accounts: { file: 'dictionary', title: 'Draw accounts' },
+  sponsors: { file: 'dictionary', title: 'Sponsors' },
   templates: { file: 'dictionary', title: 'Templates' },
-  systems: { file: 'dictionary', title: 'Payment systems' },
 };
 
 const STEPS = [
@@ -70,7 +73,7 @@ const state = {
   files: { expenses: null, dictionary: null },
   // Rows Quick Draw added for codes and awards missing from the dictionary, by
   // code or award, so they can be taken away again if no longer needed.
-  autoAdded: { dictionary: new Set(), awards: new Set() },
+  autoAdded: { dictionary: new Set(), awards: new Set(), accounts: new Set(), sponsors: new Set() },
   report: null,
   warnings: [],
   edits: new Map(), // award key -> edited justification
@@ -84,7 +87,7 @@ const state = {
     system: null,
     award: null,
     copied: new Set(), // award keys whose justification has been copied this session
-    views: { expenses: { page: 0, filter: '' }, dictionary: { page: 0, filter: '' }, awards: { page: 0, filter: '' }, systems: { page: 0, filter: '' } },
+    views: { expenses: { page: 0, filter: '' }, dictionary: { page: 0, filter: '' }, awards: { page: 0, filter: '' }, accounts: { page: 0, filter: '' }, sponsors: { page: 0, filter: '' } },
     templateRow: null,
     templateView: 'builder',
     previewAward: null,
@@ -126,7 +129,8 @@ const rebuild = () => {
     dictionary: records('dictionary'),
     awards: records('awards'),
     templates: records('templates'),
-    systems: records('systems'),
+    accounts: records('accounts'),
+    sponsors: records('sponsors'),
   });
   state.warnings = report.warnings.filter((w) => w.area === 'report' || usable(w.area));
   if (!ready()) {
@@ -134,7 +138,7 @@ const rebuild = () => {
     return;
   }
   // All run, so missing codes and awards are added, and unneeded ones removed, in one pass.
-  const changed = [addMissingCodes(report.unmapped), addMissingAwards(report.awardsSeen), removeUnneededRows(report)];
+  const changed = [addMissingCodes(report.unmapped), addMissingAwards(report.awardsSeen), addMissingKeys(report), removeUnneededRows(report)];
   if (changed.some(Boolean)) return rebuild();
   // Keep an edit only while its draft is unchanged, so a new dictionary or
   // template never hides behind an old edit.
@@ -227,6 +231,28 @@ const addMissingAwards = (seen) => {
 };
 
 /**
+ * Adds a Draw accounts row for each account in the expenses and a Sponsors row
+ * for each sponsor, so their templates can be picked, and the rows with the key
+ * blank (the payment system and template for everyone else) if missing.
+ */
+const addMissingKeys = (report) => {
+  let added = false;
+  const add = (name, values, key) => {
+    if (!usable(name)) return;
+    addRow(name, values);
+    if (key) state.autoAdded[name].add(key.toUpperCase());
+    fileOf(name).dirty = true;
+    added = true;
+  };
+  if (!report.hasDefaultAccount) add('accounts', { DrawAccount: '', PaymentSystem: 'PMS' });
+  for (const { account, listed } of report.accountsSeen) if (!listed) add('accounts', { DrawAccount: account }, account);
+  const first = report.templates[0];
+  if (!report.hasDefaultSponsor && first) add('sponsors', { Sponsor: '', Template: first.name || first.label });
+  for (const { sponsor, listed } of report.sponsorsSeen) if (!listed) add('sponsors', { Sponsor: sponsor }, sponsor);
+  return added;
+};
+
+/**
  * Takes away rows Quick Draw added that are no longer needed: a code or award
  * that has left the expenses, whose row is still unfilled. A row someone has
  * filled in is theirs, and stays. Returns whether any were removed.
@@ -241,6 +267,19 @@ const removeUnneededRows = (report) => {
     if (index !== -1) {
       table('dictionary').grid.splice(index, 1);
       removed = true;
+    }
+  }
+  const keys = { accounts: ['DrawAccount', report.accountsSeen.map((a) => a.account)], sponsors: ['Sponsor', report.sponsorsSeen.map((s) => s.sponsor)] };
+  for (const [name, [column, present]] of Object.entries(keys)) {
+    const still = new Set(present.map((k) => k.toUpperCase()));
+    for (const key of [...state.autoAdded[name]]) {
+      if (still.has(key)) continue;
+      state.autoAdded[name].delete(key);
+      const index = findRow(name, name === 'accounts' ? { [column]: key, PaymentSystem: '', URL: '', Template: '' } : { [column]: key, Template: '' });
+      if (index !== -1) {
+        table(name).grid.splice(index, 1);
+        removed = true;
+      }
     }
   }
   const seen = new Set(report.awardsSeen.map((a) => a.award.toUpperCase()));
@@ -346,9 +385,9 @@ const readFile = async (key, file, handle = null) => {
       const first = sheets[0] ?? { name: 'Expenses', grid: [] };
       entry.tables.expenses = { grid: first.grid, sheetName: first.name };
     } else {
-      const found = kind === 'csv' ? { dictionary: 0, awards: -1, templates: -1, systems: -1 } : classifySheets(sheets);
+      const found = kind === 'csv' ? Object.fromEntries(DICTIONARY_TABLES.map((name) => [name, name === 'dictionary' ? 0 : -1])) : classifySheets(sheets);
       const added = [];
-      for (const name of ['dictionary', 'awards', 'templates', 'systems']) {
+      for (const name of DICTIONARY_TABLES) {
         const sheet = sheets[found[name]];
         if (sheet) entry.tables[name] = { grid: sheet.grid, sheetName: sheet.name };
         else {
@@ -357,7 +396,16 @@ const readFile = async (key, file, handle = null) => {
         }
       }
       if (found.dictionary === -1) entry.error = 'No sheet has CostCode and BudgetCategory columns.';
-      if (added.length && kind === 'xlsx') entry.note = `No ${added.join(' or ')} sheet yet. ${added.length > 1 ? 'They are' : 'It is'} added when you save.`;
+      // An older workbook: who uses each template moves to Draw accounts and Sponsors.
+      const moved = migrateDictionary(entry.tables);
+      const notes = [];
+      if (moved.length) {
+        entry.dirty = true;
+        notes.push(`This workbook was made by an older Quick Draw. ${moved.join(' ')} Save it to keep the changes.`);
+      }
+      const newSheets = added.filter((sheet) => !(moved.length && sheet === DICTIONARY_SHEETS.accounts && entry.tables.accounts.sheetName !== sheet));
+      if (newSheets.length && kind === 'xlsx') notes.push(`No ${newSheets.join(' or ')} sheet yet. ${newSheets.length > 1 ? 'They are' : 'It is'} added when you save.`);
+      entry.note = notes.join(' ') || null;
     }
   } catch (err) {
     entry.error = err.message;
@@ -394,7 +442,7 @@ const loadSamples = async () => {
 
 const startEmptyDictionary = () => {
   const tables = {};
-  for (const name of ['dictionary', 'awards', 'templates', 'systems']) tables[name] = { grid: headerGrid(name), sheetName: DICTIONARY_SHEETS[name] };
+  for (const name of DICTIONARY_TABLES) tables[name] = { grid: headerGrid(name), sheetName: DICTIONARY_SHEETS[name] };
   state.files.dictionary = { fileName: 'dictionary.xlsx', kind: 'xlsx', original: null, handle: null, dirty: true, error: null, note: null, tables };
   rebuild();
   render();
@@ -402,13 +450,13 @@ const startEmptyDictionary = () => {
 
 const fileBytes = async (key) => {
   const file = state.files[key];
-  const names = key === 'expenses' ? ['expenses'] : ['dictionary', 'awards', 'templates', 'systems'];
+  const names = key === 'expenses' ? ['expenses'] : DICTIONARY_TABLES;
   // A CSV holds one sheet. Once awards or templates are added, the dictionary becomes a workbook.
   if (file.kind === 'csv' && names.slice(1).some((name) => hasRows(file.tables[name]))) {
     file.kind = 'xlsx';
     file.fileName = file.fileName.replace(/\.csv$/i, '') + '.xlsx';
     file.handle = null;
-    file.note = `Saved as ${file.fileName}, because a CSV file can’t hold the Awards and Templates sheets.`;
+    file.note = `Saved as ${file.fileName}, because a CSV file can’t hold the Awards, Draw accounts, Sponsors and Templates sheets.`;
   }
   if (file.kind === 'csv') return new TextEncoder().encode(`﻿${toCsv(file.tables[names[0]].grid)}`);
   const sheets = names.map((name) => ({ name: file.tables[name].sheetName, grid: file.tables[name].grid }));
@@ -465,12 +513,14 @@ const linkTo = (tab, text, then) =>
 const tip = (...lines) => lines.filter(Boolean).join('\n');
 
 /** Why the Data dictionary needs attention, for its badges. */
-const dictionaryTip = (codes, goals, codeWarnings, awardWarnings) =>
+const dictionaryTip = (codes, goals, codeWarnings, awardWarnings, accountWarnings = 0, sponsorWarnings = 0) =>
   tip(
     codes && `${plural(codes, 'cost code')} from the expenses ${codes === 1 ? 'has' : 'have'} no budget category, so ${codes === 1 ? 'its' : 'their'} costs are left out. Fill in BudgetCategory on the highlighted ${codes === 1 ? 'row' : 'rows'} of Cost codes, or type ${EXCLUDE}.`,
     goals && `${plural(goals, 'award')} ${goals === 1 ? 'has' : 'have'} no goal. Write one on the highlighted ${goals === 1 ? 'row' : 'rows'} of Awards so the justification says what the money is for.`,
     codeWarnings && `${plural(codeWarnings, 'other problem')} on Cost codes. Open it to read ${codeWarnings === 1 ? 'it' : 'them'}.`,
-    awardWarnings && `${plural(awardWarnings, 'other problem')} on Awards. Open it to read ${awardWarnings === 1 ? 'it' : 'them'}.`
+    awardWarnings && `${plural(awardWarnings, 'other problem')} on Awards. Open it to read ${awardWarnings === 1 ? 'it' : 'them'}.`,
+    accountWarnings && `${plural(accountWarnings, 'problem')} on Draw accounts. Open it to read ${accountWarnings === 1 ? 'it' : 'them'}.`,
+    sponsorWarnings && `${plural(sponsorWarnings, 'problem')} on Sponsors. Open it to read ${sponsorWarnings === 1 ? 'it' : 'them'}.`
   );
 
 const countFor = (area) => state.warnings.filter((w) => w.area === area).length;
@@ -505,7 +555,7 @@ const badgeFor = (key) => {
   }
   const error = file.error || table('dictionary').error || table('awards').error;
   if (error) return broken(error);
-  const parts = [waitingRows().size, waitingRows('awards').size, countFor('dictionary'), countFor('awards')];
+  const parts = [waitingRows().size, waitingRows('awards').size, countFor('dictionary'), countFor('awards'), countFor('accounts'), countFor('sponsors')];
   return issue(parts.reduce((a, b) => a + b, 0), dictionaryTip(...parts));
 };
 
@@ -523,7 +573,7 @@ const renderNav = () => {
 
 // Each tab has its own address, such as #requirements or #dictionary/awards,
 // so a link opens it directly and Back and Forward move between tabs.
-const DICTIONARY_HASH = { dictionary: '', awards: 'awards', systems: 'systems' };
+const DICTIONARY_HASH = { dictionary: '', awards: 'awards', accounts: 'accounts', sponsors: 'sponsors' };
 
 const addressFor = () => {
   const { tab, dictionaryView } = state.ui;
@@ -539,7 +589,9 @@ const fromAddress = () => {
   state.ui.tab = STEPS.some((step) => step.key === tab) ? tab : 'files';
   if (state.ui.tab === 'help') state.ui.helpView = ['dictionary', 'templates', 'export', 'glossary'].includes(sub) ? sub : 'requirements';
   if (state.ui.tab === 'dictionary') {
-    state.ui.dictionaryView = Object.keys(DICTIONARY_HASH).find((view) => DICTIONARY_HASH[view] === (sub ?? '')) ?? 'dictionary';
+    // #dictionary/systems was the Payment systems sheet, now Draw accounts.
+    const view = sub === 'systems' ? 'accounts' : sub ?? '';
+    state.ui.dictionaryView = Object.keys(DICTIONARY_HASH).find((key) => DICTIONARY_HASH[key] === view) ?? 'dictionary';
   }
 };
 
@@ -577,7 +629,7 @@ const fileSummary = (key) => {
   const file = state.files[key];
   if (key === 'expenses') return plural(table('expenses').records?.length ?? 0, 'row');
   const count = (name, one, many) => plural(file.tables[name].records?.length ?? 0, one, many);
-  return `${count('dictionary', 'cost code row')}, ${count('awards', 'award')}, ${count('templates', 'template')}, ${count('systems', 'payment system')}`;
+  return `${count('dictionary', 'cost code row')}, ${count('awards', 'award')}, ${count('accounts', 'draw account')}, ${count('sponsors', 'sponsor row')}, ${count('templates', 'template')}`;
 };
 
 const renderFiles = () => {
@@ -768,13 +820,49 @@ const DICTIONARY_VIEWS = {
   awards: {
     label: 'Awards',
     intro:
-      'One row per award: its sponsor and draw account (used when the expenses don’t give them), a short goal that templates write with {{ goal }}, and the template picked for it on the Report, if it doesn’t use its usual one.',
+      'One row per award: its draw account and sponsor (used when the expenses don’t give them), a short goal that templates write with {{ goal }}, and optionally its template, which comes before its account’s and sponsor’s.',
   },
-  systems: {
-    label: 'Payment systems',
+  accounts: {
+    label: 'Draw accounts',
     intro:
-      'Which payment system each draw account uses, and the link its Open button goes to on the Report tab. Leave DrawAccount blank on one row for the system most accounts use, and add a row for each account that draws somewhere else, such as an ASAP account.',
+      'Each draw account’s payment system, which its Open button goes to, and optionally a template for all its awards, which comes before their sponsors’. The row with DrawAccount blank gives the system for every account not listed.',
   },
+  sponsors: {
+    label: 'Sponsors',
+    intro: 'The template each sponsor’s awards use, unless the award or its draw account names one. The row with Sponsor blank is the default template for everyone.',
+  },
+};
+
+/** Template names, for the Template columns. */
+const templateNames = () => (state.report?.templates ?? []).map((t) => t.label);
+
+/** Where a Draw accounts or Sponsors row applies: one account or sponsor, or every one not listed. */
+const keyScope = (name, column, others) => (index) => {
+  const t = table(name);
+  const { positions } = tableLayout(t.grid, COLUMNS[name]);
+  const key = column in positions ? cellText(t.grid[index]?.[positions[column]]) : '';
+  return key ? { text: `Only ${key}`, kind: name === 'accounts' ? 'account' : 'sponsor' } : { text: others, kind: 'general' };
+};
+
+/** The Draw accounts or Sponsors table, with an Applies to column and template names to pick from. */
+const keyTable = (name, flagged) => {
+  const holder = el('div', { class: 'table-holder' });
+  const [column, others] = name === 'accounts' ? ['DrawAccount', 'Every other account'] : ['Sponsor', 'Every other sponsor (default)'];
+  renderDataTable(holder, {
+    name,
+    table: table(name),
+    columns: COLUMNS[name],
+    columnHelp: COLUMN_HELP[name],
+    appliesTo: keyScope(name, column, others),
+    view: state.ui.views[name],
+    flagged,
+    suggest: new Map([
+      ['Template', templateNames()],
+      ['PaymentSystem', ['PMS', 'ASAP', 'Research.gov', 'WAWF']],
+    ]),
+    onEdit: (kind) => edited(name, kind),
+  });
+  return holder;
 };
 
 const renderDictionary = () => {
@@ -814,7 +902,7 @@ const renderDictionary = () => {
       : [
           waitingHint(view),
           el('div', { id: 'tab-warnings', dataset: { area: view } }, warningNodes(view)),
-          view === 'dictionary' ? codesTable(flagged) : view === 'awards' ? awardsTable(flagged) : tableView(view, flagged),
+          view === 'dictionary' ? codesTable(flagged) : view === 'awards' ? awardsTable(flagged) : keyTable(view, flagged),
         ],
     el('div', { id: 'next-area' }, nextButton('dictionary'))
   );
@@ -849,7 +937,7 @@ const awardsTable = (flagged) => {
     flagged,
     pinned: waitingRows('awards'),
     needs: 'Goal',
-    readOnly: { Template: 'Choose an award’s template with the Template menu on the Report tab; it is saved here. Blank means the award uses its usual template.' },
+    suggest: new Map([['Template', templateNames()]]),
     onEdit: (kind) => edited('awards', kind),
   });
   return holder;
@@ -898,7 +986,14 @@ const badgeForView = (key) => {
   const waiting = waitingRows(key).size;
   const n = countFor(key) + waiting;
   if (!n) return {};
-  const title = key === 'dictionary' ? dictionaryTip(waiting, 0, countFor(key), 0) : dictionaryTip(0, waiting, 0, countFor(key));
+  const title =
+    key === 'dictionary'
+      ? dictionaryTip(waiting, 0, countFor(key), 0)
+      : key === 'awards'
+        ? dictionaryTip(0, waiting, 0, countFor(key))
+        : key === 'accounts'
+          ? dictionaryTip(0, 0, 0, 0, countFor(key))
+          : dictionaryTip(0, 0, 0, 0, 0, countFor(key));
   return { badge: String(n), badgeClass: 'warn', title };
 };
 
@@ -911,27 +1006,27 @@ const renderTemplatesTab = () => {
   fill(
     main(),
     el('h2', {}, 'Templates'),
-    el('p', { class: 'lead' }, 'Write the justification once, with blanks that Quick Draw fills in for each award. Templates are kept on the Templates sheet of the data dictionary.'),
+    el(
+      'p',
+      { class: 'lead' },
+      'Write the justification once, with blanks that Quick Draw fills in for each award. Templates are kept on the Templates sheet of the data dictionary. How to write one: ',
+      linkTo('help', 'Help › Templates', () => (state.ui.helpView = 'templates')),
+      '.'
+    ),
     saveBar('dictionary'),
     t.error ? notice('error', 'The Templates sheet can’t be used', [t.error]) : holder,
     nextButton('templates')
   );
   updateSaveBar('dictionary');
   if (t.error) return;
-  const accounts = new Set();
-  const sponsors = new Set();
-  for (const record of table('expenses')?.records ?? []) {
-    if (cellText(record.DrawAccount)) accounts.add(cellText(record.DrawAccount));
-    if (cellText(record.Sponsor)) sponsors.add(cellText(record.Sponsor));
-  }
   renderTemplates(holder, {
     table: t,
     report: state.report,
     ui: state.ui,
     warnings: state.warnings.filter((w) => w.area === 'templates'),
-    accounts: [...accounts].sort(),
-    sponsors: [...sponsors].sort(),
     setCell: (index, column, value) => setCell('templates', index, column, value),
+    renameTemplate,
+    setDefaultTemplate,
     addRow: (values) => addRow('templates', values),
     deleteRow: (index) => t.grid.splice(index, 1),
     onEdit: () => edited('templates'),
@@ -947,6 +1042,43 @@ const saveGoal = (award, goal) =>
     if (index === -1) addRow('awards', { Award: award, Goal: goal });
     else setCell('awards', index, 'Goal', goal);
   });
+
+/** Makes a template the default: the Template on the Sponsors row with Sponsor blank. Redraws at once. */
+const setDefaultTemplate = (name) => {
+  if (!usable('sponsors') || !name) return;
+  const t = table('sponsors');
+  const { headerIndex, positions } = tableLayout(t.grid, COLUMNS.sponsors);
+  const get = (row, column) => (column in positions ? cellText(row?.[positions[column]]) : '');
+  let index = -1;
+  for (let r = headerIndex + 1; r < t.grid.length; r++) {
+    if (!get(t.grid[r], 'Sponsor') && get(t.grid[r], 'Template')) {
+      index = r;
+      break;
+    }
+  }
+  if (index === -1) addRow('sponsors', { Sponsor: '', Template: name });
+  else setCell('sponsors', index, 'Template', name);
+  markDirty('sponsors');
+  rebuild();
+  render();
+};
+
+/** After a template is renamed, the Template cells naming it follow. */
+const renameTemplate = (from, to) => {
+  if (!from || !to || from.toUpperCase() === to.toUpperCase()) return;
+  for (const name of ['awards', 'accounts', 'sponsors']) {
+    if (!usable(name)) continue;
+    const t = table(name);
+    const { headerIndex, positions } = tableLayout(t.grid, COLUMNS[name]);
+    if (!('Template' in positions)) continue;
+    for (let r = headerIndex + 1; r < t.grid.length; r++) {
+      if (cellText(t.grid[r]?.[positions.Template]).toUpperCase() === from.toUpperCase()) {
+        t.grid[r][positions.Template] = to;
+        fileOf(name).dirty = true;
+      }
+    }
+  }
+};
 
 /** Saves which template an award uses (blank for its usual one) on the Awards sheet. */
 const saveTemplateChoice = (award, name) =>
@@ -1063,9 +1195,8 @@ const problemsWith = (account, award) => {
   return problems;
 };
 
-/** The payment system an account's justifications go into, from the Payment systems sheet, else PMS. */
-const systemOf = (account) => account.paymentSystem ?? (state.report.paymentSystems.length > 0 ? null : { name: 'PMS', url: PAYMENT_SYSTEMS[0].url });
-const systemName = (account) => systemOf(account)?.name ?? 'No payment system';
+/** The payment system an account's justifications go into, from the Draw accounts sheet (PMS if it says nothing). */
+const systemName = (account) => account.paymentSystem.name;
 
 /** Why an award's usual template is its usual one, for the Template menu. */
 const usualNote = (usual) => (usual.source === 'default' ? 'default' : `for ${usual.scope}`);
@@ -1093,13 +1224,9 @@ const copyJustification = async (account, award) => {
   renderReport();
 };
 
-/**
- * The button that opens where this account's payment requests go, from the
- * Payment systems sheet. A dictionary without that sheet links to PMS.
- */
+/** The button that opens where this account's payment requests go, from the Draw accounts sheet. */
 const systemLink = (account) => {
-  const system = systemOf(account);
-  if (!system) return null;
+  const system = account.paymentSystem;
   return el(
     'a',
     {
@@ -1107,7 +1234,7 @@ const systemLink = (account) => {
       href: system.url,
       target: '_blank',
       rel: 'noopener',
-      title: `Open ${system.name} in a new tab, to paste the justification. Set where each account draws on the Payment systems sheet of the data dictionary.`,
+      title: `Open ${system.name} in a new tab, to paste the justification. Set each account’s payment system on the Draw accounts tab of the data dictionary.`,
     },
     `Open ${system.name} ↗`
   );

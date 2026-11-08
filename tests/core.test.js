@@ -19,6 +19,7 @@ import {
   toCsv,
   readTable,
   similarCategories,
+  migrateDictionary,
 } from '../docs/js/core.js';
 
 const csv = (text, name) => readTable(parseCsv(text), COLUMNS[name], name);
@@ -32,7 +33,8 @@ const samples = {
   dictionary: readTable(dictionarySheets[found.dictionary].grid, COLUMNS.dictionary, 'dictionary'),
   awards: readTable(dictionarySheets[found.awards].grid, COLUMNS.awards, 'awards'),
   templates: readTable(dictionarySheets[found.templates].grid, COLUMNS.templates, 'templates'),
-  systems: readTable(dictionarySheets[found.systems].grid, COLUMNS.systems, 'systems'),
+  accounts: readTable(dictionarySheets[found.accounts].grid, COLUMNS.accounts, 'accounts'),
+  sponsors: readTable(dictionarySheets[found.sponsors].grid, COLUMNS.sponsors, 'sponsors'),
 };
 const sampleReport = (extra = {}) => buildReport({ ...samples, ...extra });
 
@@ -95,8 +97,8 @@ test('sheet names are cleaned, shortened and unique', () => {
 });
 
 test('the sample workbook has its sheets', () => {
-  assert.deepEqual([...dictionarySheets].map((sheet) => String(sheet.name)), ['Read me', 'Cost codes', 'Awards', 'Templates', 'Payment systems']);
-  assert.deepEqual(found, { dictionary: 1, awards: 2, templates: 3, systems: 4 });
+  assert.deepEqual([...dictionarySheets].map((sheet) => String(sheet.name)), ['Read me', 'Cost codes', 'Awards', 'Draw accounts', 'Sponsors', 'Templates']);
+  assert.deepEqual(found, { dictionary: 1, awards: 2, accounts: 3, sponsors: 4, templates: 5 });
   const readMe = dictionarySheets[0].grid;
   assert.equal(readMe[0][0], 'Quick Draw data dictionary');
   assert.ok(readMe.some((row) => row[0] === 'The sheets and what they are for'));
@@ -107,12 +109,27 @@ test('sheets are recognized by their columns before their names', () => {
   const sheet = (name, header) => ({ name, grid: [header] });
   assert.deepEqual(
     classifySheets([sheet('Notes', ['Anything']), sheet('Wording', ['Template']), sheet('Goals', ['Award', 'Goal']), sheet('Map', ['Cost Code', 'Budget Category'])]),
-    { dictionary: 3, awards: 2, templates: 1, systems: -1 }
+    { dictionary: 3, awards: 2, accounts: -1, sponsors: -1, templates: 1 }
   );
-  assert.deepEqual(classifySheets([sheet('Awards', ['Award']), sheet('Codes', ['X'])]), { dictionary: 1, awards: 0, templates: -1, systems: -1 });
+  assert.deepEqual(classifySheets([sheet('Awards', ['Award']), sheet('Codes', ['X'])]), { dictionary: 1, awards: 0, accounts: -1, sponsors: -1, templates: -1 });
   assert.deepEqual(
     classifySheets([sheet('A', ['Award', 'Goal', 'Template']), sheet('T', ['Name', 'Template']), sheet('C', ['CostCode', 'BudgetCategory', 'Award'])]),
-    { dictionary: 2, awards: 0, templates: 1, systems: -1 }
+    { dictionary: 2, awards: 0, accounts: -1, sponsors: -1, templates: 1 }
+  );
+  // Draw accounts and Sponsors have a Template column too; the Templates sheet is the one with its own columns.
+  assert.deepEqual(
+    classifySheets([
+      sheet('S', ['Sponsor', 'Template']),
+      sheet('D', ['DrawAccount', 'PaymentSystem', 'URL', 'Template']),
+      sheet('T', ['Name', 'Template', 'MaxLength']),
+      sheet('C', ['CostCode', 'BudgetCategory']),
+    ]),
+    { dictionary: 3, awards: -1, accounts: 1, sponsors: 0, templates: 2 }
+  );
+  // An older workbook's Payment systems and Templates sheets.
+  assert.deepEqual(
+    classifySheets([sheet('Payment systems', ['Name', 'URL', 'DrawAccount', 'Sponsor']), sheet('Templates', ['Name', 'DrawAccount', 'Sponsor', 'Template']), sheet('C', ['CostCode', 'BudgetCategory'])]),
+    { dictionary: 2, awards: -1, accounts: 0, sponsors: -1, templates: 1 }
   );
 });
 
@@ -139,6 +156,8 @@ test('sample files build the expected report', () => {
   assert.equal(awd1001.totalCents, 1176455);
   assert.equal(awd1001.template.label, 'HHS and NIH');
   assert.deepEqual(awd1001.usual, { row: 2, label: 'HHS and NIH', source: 'default', scope: '' });
+  assert.deepEqual(report.templates[0].usedBy, { default: true, sponsors: [], accounts: [], awards: [] });
+  assert.deepEqual(report.templates[2].usedBy, { default: false, sponsors: ['Sponsor B'], accounts: [], awards: [] });
   // The HHS template: each cost with what it paid for, when, and how it supports the award.
   assert.equal(
     awd1001.justification,
@@ -169,7 +188,7 @@ test('sample files build the expected report', () => {
   // A negative cost nets against the category.
   assert.equal(awd2001.categories.find((c) => c.name === 'Materials & Supplies').cents, 28540);
 
-  // Sponsor C has no template of its own, so it gets the Default.
+  // Sponsor C has no template of its own, so it gets the default.
   assert.equal(c.awards[0].template.label, 'HHS and NIH');
 
   assert.deepEqual(report.unmapped, [{ code: 'C900', cents: 7500, accounts: ['ACCT-A'], awards: ['AWD-1002'] }]);
@@ -215,43 +234,53 @@ test('a draw account row beats a sponsor row, which beats a general row', () => 
   const report = buildReport({
     expenses: csv('Award,DrawAccount,Sponsor,CostCode,Cost\nA1,X,S,C1,1\nA2,Y,S,C1,1\nA3,Z,T,C1,1', 'expenses'),
     dictionary: csv('CostCode,BudgetCategory,DrawAccount,Sponsor\nC1,General,,\nC1,For S,,S\nC1,For X,X,S', 'dictionary'),
-    templates: csv('Name,Default,DrawAccount,Sponsor,Template\nSpare,,,,spare\nAll,TRUE,,,all {{ sponsor }}\nS only,,,S,s {{ sponsor }}\nX only,,X,,x {{ account }}', 'templates'),
+    templates: csv('Name,Template\nSpare,spare\nAll,all {{ sponsor }}\nS only,s {{ sponsor }}\nX only,x {{ account }}', 'templates'),
+    accounts: csv('DrawAccount,PaymentSystem,Template\n,PMS,\nX,,X only', 'accounts'),
+    sponsors: csv('Sponsor,Template\n,All\nS,S only', 'sponsors'),
   });
   const by = Object.fromEntries(report.accounts.map((a) => [a.account, a]));
   assert.equal(by.X.awards[0].categories[0].name, 'For X');
   assert.equal(by.Y.awards[0].categories[0].name, 'For S');
   assert.equal(by.Z.awards[0].categories[0].name, 'General');
-  // Templates: the award's draw account, else its sponsor, else the one marked Default.
+  // Templates, most specific first: the draw account's, else the sponsor's, else the default.
   assert.deepEqual([by.X, by.Y, by.Z].map((a) => a.awards[0].justification), ['x X', 's S', 'all T']);
-  assert.deepEqual([by.X, by.Y, by.Z].map((a) => a.awards[0].usual.source), ['account', 'sponsor', 'default']);
+  assert.deepEqual([by.X, by.Y, by.Z].map((a) => [a.awards[0].usual.source, a.awards[0].usual.scope]), [['account', 'X'], ['sponsor', 'S'], ['default', '']]);
   assert.deepEqual(report.warnings, []);
+});
+
+test('an award’s own template comes first, and a name that isn’t a template is flagged where it is', () => {
+  const report = buildReport({
+    expenses: csv('Award,DrawAccount,Sponsor,CostCode,Cost\nA1,X,S,C1,1\nA2,X,S,C1,1', 'expenses'),
+    dictionary: csv('CostCode,BudgetCategory\nC1,Travel', 'dictionary'),
+    templates: csv('Name,Template\nOne,one\nTwo,two\nThree,three', 'templates'),
+    awards: csv('Award,Template\nA1,three', 'awards'),
+    accounts: csv('DrawAccount,Template\nX,Two\n,One', 'accounts'),
+    sponsors: csv('Sponsor,Template\nS,Nope', 'sponsors'),
+  });
+  assert.deepEqual(report.accounts[0].awards.map((w) => [w.justification, w.template.chosen]), [['three', true], ['two', false]]);
+  const area = (name) => report.warnings.filter((w) => w.area === name).map((w) => w.text).join('\n');
+  assert.match(area('sponsors'), /Sponsor S names the template "Nope", which is not on the Templates sheet/);
+  assert.match(area('accounts'), /row with DrawAccount blank has a Template, which is ignored/);
+  // Without a default row, the first template is the default.
+  assert.equal(report.templates[0].usedBy.default, true);
+  assert.deepEqual(report.templates[1].usedBy.accounts, ['X']);
+  assert.deepEqual(report.templates[2].usedBy.awards, ['A1']);
 });
 
 test('awards in one draw account can have different sponsors, and so different templates', () => {
   const report = buildReport({
     expenses: csv('Award,DrawAccount,Sponsor,CostCode,Cost\nA1,P,NIH,C1,1\nA2,P,DOL,C1,1', 'expenses'),
     dictionary: csv('CostCode,BudgetCategory\nC1,Travel', 'dictionary'),
-    templates: csv('Name,Default,Sponsor,Template\nHHS,yes,,hhs\nDOL,,DOL,dol', 'templates'),
+    templates: csv('Name,Template\nHHS,hhs\nDOL,dol', 'templates'),
+    sponsors: csv('Sponsor,Template\n,HHS\nDOL,DOL', 'sponsors'),
   });
   assert.deepEqual(report.accounts.map((a) => a.sponsors), [['DOL', 'NIH']]);
   assert.deepEqual(report.accounts[0].awards.map((w) => w.justification), ['hhs', 'dol']);
   assert.deepEqual(report.warnings, []);
-});
-
-test('the Default template: the one ticked, else the first with no account or sponsor', () => {
-  const build = (templates) =>
-    buildReport({
-      expenses: csv('Award,CostCode,Cost\nA1,C1,1', 'expenses'),
-      dictionary: csv('CostCode,BudgetCategory\nC1,Travel', 'dictionary'),
-      templates: csv(templates, 'templates'),
-    });
-  const older = build('Name,Template\nFirst,one\nSecond,two');
-  assert.equal(older.accounts[0].awards[0].justification, 'one');
-  assert.match(older.warnings.map((w) => w.text).join('\n'), /No template is marked Default, so First is used/);
-  const two = build('Name,Default,Template\nFirst,,one\nSecond,TRUE,two\nThird,x,three');
-  assert.equal(two.accounts[0].awards[0].justification, 'two');
-  assert.match(two.warnings.map((w) => w.text).join('\n'), /More than one template is marked Default \(Second, Third\)/);
-  assert.deepEqual(two.templates.map((t) => t.isDefault), [false, true, false]);
+  // Accounts and sponsors in the expenses, and whether their sheets list them.
+  assert.deepEqual(report.accountsSeen, [{ account: 'P', listed: false }]);
+  assert.deepEqual(report.sponsorsSeen, [{ sponsor: 'DOL', listed: true }, { sponsor: 'NIH', listed: false }]);
+  assert.deepEqual([report.hasDefaultSponsor, report.hasDefaultAccount], [true, false]);
 });
 
 test('awards file problems and missing goals', () => {
@@ -272,7 +301,7 @@ test('problems are reported on the tab they belong to', () => {
   const report = buildReport({
     expenses: csv('Award,CostCode,Cost,CostDate,DrawAccount\nA1,C1,10,bad,X\nA1,C1,oops,,X\n,C1,5,,X\nA2,c1,0,,X', 'expenses'),
     dictionary: csv('CostCode,BudgetCategory\nC1,Travel\nC1,Other\nC2,', 'dictionary'),
-    templates: csv('DrawAccount,Template,MaxLength\nY,{award} {{ nope }},ten', 'templates'),
+    templates: csv('Template,MaxLength\n{award} {{ nope }},ten', 'templates'),
   });
   const area = (name) => report.warnings.filter((w) => w.area === name).map((w) => w.text).join('\n');
   assert.match(area('dictionary'), /already maps it to "Travel"/);
@@ -283,7 +312,7 @@ test('problems are reported on the tab they belong to', () => {
   assert.match(area('expenses'), /not a number.*3/);
   assert.match(area('expenses'), /can't be read.*2/);
   assert.match(area('expenses'), /no Award.*4/);
-  assert.match(area('report'), /No template fits A1/);
+  assert.match(area('report'), /The template failed for A1/);
   assert.match(area('report'), /net to \$0\.00.*A2/);
   assert.equal(report.accounts[0].awards[0].justification, '');
   assert.equal(report.accounts[0].awards[0].start, null);
@@ -342,37 +371,60 @@ test('the downloaded report opens with a Read me saying what it holds', async ()
   assert.match(readMe.get('Unmapped codes'), /\$75\.00 in 1 code not in the dictionary: C900/);
 });
 
-test('each draw account has one payment system: its own row, else the row with no account', () => {
-  // One agency can draw through several systems, so the sponsor doesn't decide it.
-  const report = buildReport({
-    expenses: csv('Award,DrawAccount,Sponsor,CostCode,Cost\nA1,X,DoD,C1,1\nA2,Y,DoD,C1,1\nA3,Z,NIH,C1,1', 'expenses'),
-    dictionary: csv('CostCode,BudgetCategory\nC1,Travel', 'dictionary'),
-    templates: csv('Default,Template\nTRUE,ok', 'templates'),
-    systems: csv('Name,URL,DrawAccount\nPMS,https://pms.psc.gov/,\nWAWF,https://piee.eb.mil/,X\nOther,https://example.org/,Z\nBad,not a link,', 'systems'),
-  });
+test('each draw account has one payment system: its own row, else the row with no account, else PMS', () => {
+  // One sponsor can draw through several systems, so the sponsor doesn't decide it.
+  const build = (accounts) =>
+    buildReport({
+      expenses: csv('Award,DrawAccount,Sponsor,CostCode,Cost\nA1,X,DoD,C1,1\nA2,Y,DoD,C1,1\nA3,Z,NIH,C1,1\nA4,W,NIH,C1,1', 'expenses'),
+      dictionary: csv('CostCode,BudgetCategory\nC1,Travel', 'dictionary'),
+      templates: csv('Template\nok', 'templates'),
+      accounts: csv(accounts, 'accounts'),
+    });
+  const report = build('DrawAccount,PaymentSystem,URL\n,ASAP,\nX,WAWF,\nZ,Other,https://example.org/\nW,Mystery,');
   assert.deepEqual(
-    report.accounts.map((a) => [a.account, a.paymentSystem?.name]),
+    report.accounts.map((a) => [a.account, a.paymentSystem.name, a.paymentSystem.url]),
     [
-      ['X', 'WAWF'],
-      ['Y', 'PMS'],
-      ['Z', 'Other'],
+      ['W', 'ASAP', 'https://www.asap.gov/'],
+      ['X', 'WAWF', 'https://piee.eb.mil/'],
+      ['Y', 'ASAP', 'https://www.asap.gov/'],
+      ['Z', 'Other', 'https://example.org/'],
     ]
   );
-  assert.match(report.warnings.map((w) => w.text).join('\n'), /Row 5 \(Bad\) needs a URL starting with https/);
+  assert.match(report.warnings.map((w) => w.text).join('\n'), /Draw account W uses Mystery, which Quick Draw has no link for/);
+  // With no row for everyone else, PMS.
+  assert.equal(build('DrawAccount,PaymentSystem\nX,WAWF').accounts.find((a) => a.account === 'Y').paymentSystem.name, 'PMS');
 });
 
-test('an older Payment systems sheet with a Sponsor column says what changed', () => {
-  const report = buildReport({
-    expenses: csv('Award,DrawAccount,Sponsor,CostCode,Cost\nA1,X,NSF,C1,1', 'expenses'),
-    dictionary: csv('CostCode,BudgetCategory\nC1,Travel', 'dictionary'),
-    templates: csv('Default,Template\nTRUE,ok', 'templates'),
-    systems: csv('Name,URL,DrawAccount,Sponsor\nPMS,https://pms.psc.gov/,,\nResearch.gov,https://www.research.gov/,,NSF\nASAP,https://www.asap.gov/,,', 'systems'),
-  });
-  assert.equal(report.accounts[0].paymentSystem.name, 'PMS');
-  const text = report.warnings.filter((w) => w.area === 'systems').map((w) => w.text).join('\n');
-  assert.match(text, /Row 3 \(Research\.gov\) has Sponsor NSF, which is ignored: payment systems go by draw account/);
-  assert.match(text, /Row 4 \(ASAP\) also has DrawAccount blank, so it is ignored/);
-  assert.deepEqual(report.paymentSystems.map((s) => s.name), ['PMS']);
+test('an older workbook is brought up to date, saying what moved', () => {
+  const grid = (text) => parseCsv(text);
+  const tables = {
+    templates: { grid: grid('Name,Default,DrawAccount,Sponsor,Template\nHHS,TRUE,,,hhs\n,,,DOL,dol\nSpecial,,ACCT-9,,special'), sheetName: 'Templates' },
+    accounts: { grid: grid('Name,URL,DrawAccount,Sponsor\nPMS,https://pms.psc.gov/,,\nResearch.gov,https://www.research.gov/,,NSF'), sheetName: 'Payment systems' },
+    sponsors: { grid: [['Sponsor', 'Template']], sheetName: 'Sponsors' },
+  };
+  const notes = migrateDictionary(tables);
+  assert.equal(notes.length, 3);
+  assert.match(notes[1], /these rows were removed: Research\.gov for NSF/);
+  assert.match(notes[2], /HHS → the default; DOL → sponsor DOL; Special → draw account ACCT-9/);
+  assert.deepEqual(tables.templates.grid, [
+    ['Name', 'Template'],
+    ['HHS', 'hhs'],
+    ['DOL', 'dol'],
+    ['Special', 'special'],
+  ]);
+  assert.equal(tables.accounts.sheetName, 'Draw accounts');
+  assert.deepEqual(tables.accounts.grid, [
+    ['PaymentSystem', 'URL', 'DrawAccount', 'Template'],
+    ['PMS', 'https://pms.psc.gov/', ''],
+    ['', '', 'ACCT-9', 'Special'],
+  ]);
+  assert.deepEqual(tables.sponsors.grid, [
+    ['Sponsor', 'Template'],
+    ['DOL', 'DOL'],
+    ['', 'HHS'],
+  ]);
+  // A current workbook is left alone.
+  assert.deepEqual(migrateDictionary(tables), []);
 });
 
 test('the sample sends ACCT-C to ASAP and the rest to PMS', () => {

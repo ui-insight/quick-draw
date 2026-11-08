@@ -20,33 +20,41 @@ const costCodes = [
 ];
 
 const awards = [
-  ['Award', 'Sponsor', 'DrawAccount', 'Program', 'Goal', 'Template'],
-  ['AWD-1001', 'Sponsor A', 'ACCT-A', '', 'mapping groundwater recharge in the upper basin', ''],
-  ['AWD-2001', 'Sponsor B', 'ACCT-B', 'Sample Workforce Program', 'training graduate students in field hydrology', ''],
-  ['AWD-3001', 'Sponsor C', 'ACCT-C', '', 'monitoring soil moisture on working farms', ''],
+  ['Award', 'DrawAccount', 'Sponsor', 'Program', 'Goal', 'Template'],
+  ['AWD-1001', 'ACCT-A', 'Sponsor A', '', 'mapping groundwater recharge in the upper basin', ''],
+  ['AWD-2001', 'ACCT-B', 'Sponsor B', 'Sample Workforce Program', 'training graduate students in field hydrology', ''],
+  ['AWD-3001', 'ACCT-C', 'Sponsor C', '', 'monitoring soil moisture on working farms', ''],
 ];
 
-// The standard templates. HHS and NIH is the Default; Sponsor B's awards use the DOL format.
-const sponsorFor = { 'DOL VETS': 'Sponsor B' };
-const templates = [
-  ['Name', 'Default', 'DrawAccount', 'Sponsor', 'Template', 'MaxLength', 'Fallback'],
-  ...STANDARD_TEMPLATES.map((t, i) => [t.name, i === 0 ? 'TRUE' : '', '', sponsorFor[t.name] ?? '', t.text, t.maxLength, t.fallback ?? '']),
+// Each draw account's payment system: ACCT-C is an ASAP account; the row with
+// DrawAccount blank puts every other account in PMS. Known systems need no URL.
+const accounts = [
+  ['DrawAccount', 'PaymentSystem', 'URL', 'Template'],
+  ['', 'PMS', '', ''],
+  ['ACCT-A', '', '', ''],
+  ['ACCT-B', '', '', ''],
+  ['ACCT-C', 'ASAP', '', ''],
 ];
 
-// Which system each draw account requests payment through: ACCT-C is an ASAP
-// account, and every other account is in PMS.
-const systems = [
-  ['Name', 'URL', 'DrawAccount'],
-  ['PMS', 'https://pms.psc.gov/', ''],
-  ['ASAP', 'https://www.asap.gov/', 'ACCT-C'],
+// Which template each sponsor uses: HHS and NIH by default, the DOL format for Sponsor B.
+const sponsors = [
+  ['Sponsor', 'Template'],
+  ['', 'HHS and NIH'],
+  ['Sponsor A', ''],
+  ['Sponsor B', 'DOL VETS'],
+  ['Sponsor C', ''],
 ];
+
+// The standard templates: the wording only.
+const templates = [['Name', 'Template', 'MaxLength', 'Fallback'], ...STANDARD_TEMPLATES.map((t) => [t.name, t.text, t.maxLength, t.fallback ?? ''])];
 
 const bytes = await writeXlsx(loadExcelJS(), [
   { name: README_SHEET, grid: readMeRows(), readMe: true },
   { name: 'Cost codes', grid: costCodes },
   { name: 'Awards', grid: awards },
+  { name: 'Draw accounts', grid: accounts },
+  { name: 'Sponsors', grid: sponsors },
   { name: 'Templates', grid: templates },
-  { name: 'Payment systems', grid: systems },
 ]);
 writeFileSync(new URL('../docs/samples/dictionary.xlsx', import.meta.url), Buffer.from(bytes));
 console.log('Wrote docs/samples/dictionary.xlsx');

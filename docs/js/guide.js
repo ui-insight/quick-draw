@@ -262,9 +262,7 @@ const TEMPLATES_GUIDE = {
       ),
       p(
         b('Which template an award uses:'),
-        ' the one picked for it with the Template menu on the Report; else its draw account’s; else its sponsor’s; else the one with ',
-        b('Default'),
-        ' ticked. Set a template’s draw account, sponsor and Default at the top of this tab.'
+        ' set in the data dictionary’s Template columns. The first one found wins: the award’s own (on Awards, or with the Template menu on the Report), else its draw account’s, else its sponsor’s, else the default, on the Sponsors row with Sponsor blank. The line under a template’s name says who uses it.'
       ),
       p(
         b('When something is wrong,'),
@@ -630,7 +628,7 @@ const ABOUT_GUIDE = {
       'a-systems',
       'Payment systems',
       el('ul', { class: 'guide-links' }, PAYMENT_SYSTEMS.map((s) => el('li', {}, link(s.url, s.name), ': ', s.who))),
-      p('One agency can use more than one: within DoD, ONR takes payment requests through WAWF while other offices use PMS, and within USDA, NIFA uses ASAP. So the Payment systems sheet of your data dictionary says which system each draw account uses, and the Report groups draw accounts by system. The Open button beside each justification goes there.')
+      p('One agency can use more than one: within DoD, ONR takes payment requests through WAWF while other offices use PMS, and within USDA, NIFA uses ASAP. So the Draw accounts sheet of your data dictionary says which system each draw account uses, and the Report groups draw accounts by system. The Open button beside each justification goes there.')
     ),
     section(
       'a-sources',
@@ -743,14 +741,15 @@ const CODES_GUIDE = {
     section(
       'd-sheets',
       'What it holds',
-      p('One Excel workbook you keep and bring back each time. Quick Draw finds each sheet by its columns, so the names and order don’t matter.'),
+      p('One Excel workbook you keep and bring back each time. Quick Draw finds each sheet by its columns, so the names and order don’t matter. The tabs go from most to least specific: an award sits in one draw account, and its sponsor is a broader grouping.'),
       el(
         'ul',
         {},
         el('li', {}, b('Cost codes'), ': each cost code’s sponsor budget category and description.'),
-        el('li', {}, b('Awards'), ': each award’s sponsor, draw account, goal and, optionally, its template.'),
-        el('li', {}, b('Templates'), ': the justification wording.'),
-        el('li', {}, b('Payment systems'), ': where each award’s requests go.'),
+        el('li', {}, b('Awards'), ': each award’s draw account, sponsor, goal and, optionally, its template.'),
+        el('li', {}, b('Draw accounts'), ': each account’s payment system and, optionally, a template for all its awards.'),
+        el('li', {}, b('Sponsors'), ': the template each sponsor’s awards use, and the default.'),
+        el('li', {}, b('Templates'), ': the justification wording, edited on the Templates tab.'),
         el('li', {}, b('Read me'), ': explains the workbook; Quick Draw skips it.')
       )
     ),
@@ -785,10 +784,25 @@ const CODES_GUIDE = {
     ),
     section('d-awards', 'Awards: the columns', columnTable(COLUMN_HELP.awards)),
     section(
-      'd-systems',
-      'Payment systems: the columns',
-      columnTable(COLUMN_HELP.systems),
-      p('Each draw account belongs to one payment system: the row naming it, else the row with DrawAccount blank. It goes by draw account, not sponsor, because one agency can use several systems. The Report’s top row of tabs groups accounts by system. Without this sheet, Quick Draw links to PMS.')
+      'd-accounts',
+      'Draw accounts: the columns',
+      columnTable(COLUMN_HELP.accounts),
+      p('Each draw account belongs to one payment system: its own row’s, else the row with DrawAccount blank, else PMS. It goes by draw account, not sponsor, because one sponsor can use several systems. The Report’s top row of tabs groups accounts by system.')
+    ),
+    section('d-sponsors', 'Sponsors: the columns', columnTable(COLUMN_HELP.sponsors)),
+    section(
+      'd-template',
+      'Which template an award uses',
+      p('Awards, Draw accounts and Sponsors each have a Template column. Read them in that order, from most to least specific; the first one filled in wins:'),
+      el(
+        'ol',
+        {},
+        el('li', {}, b('Awards'), ': the award’s own. The Template menu on the Report sets it too.'),
+        el('li', {}, b('Draw accounts'), ': for every award in the account.'),
+        el('li', {}, b('Sponsors'), ': for every award from the sponsor.'),
+        el('li', {}, b('Sponsors, the row with Sponsor blank'), ': the default for everyone else. Without one, the first template is used.')
+      ),
+      p('Most dictionaries need only the default and a row for each sponsor with its own rules, such as DOL. Leave the rest blank. Draw accounts and sponsors in the expenses get rows added for you, so you only pick.')
     ),
     section(
       'd-saving',
