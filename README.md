@@ -2,7 +2,7 @@
 
 Build drawdown justifications in your browser. Upload your expenses, a data dictionary and justification templates as Excel or CSV, and download a workbook with costs rolled up by sponsor budget category. Nothing leaves your computer.
 
-**Status:** in development. The app is not live yet. When it is, it will be at https://ui-insight.github.io/quick-draw/.
+**Use it:** https://ui-insight.github.io/quick-draw/. It is in active development, so expect changes; the **Load the sample files** button shows how it works with made-up data.
 
 Part of [AI4RA](https://ai4ra.uidaho.edu) at the University of Idaho.
 
@@ -141,7 +141,7 @@ Quick Draw runs templates with its own small Jinja interpreter. It never runs co
 
 ## Run it locally
 
-The site is static. GitHub Pages serves `docs/` from `main`. To preview it, serve that folder with any static web server:
+The site is static. GitHub Pages serves `docs/` from `main`, so every push to `main` updates the live site within a minute or two. `docs/.nojekyll` tells Pages to serve the folder as is, without running it through Jekyll. To preview it, serve that folder with any static web server:
 
 ```bash
 npm run serve
