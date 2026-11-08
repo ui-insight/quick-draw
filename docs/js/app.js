@@ -81,7 +81,7 @@ const state = {
     account: null,
     open: new Set(),
     describing: new Set(), // award keys whose code descriptions are being edited
-    sponsor: null,
+    system: null,
     award: null,
     copied: new Set(), // award keys whose justification has been copied this session
     views: { expenses: { page: 0, filter: '' }, dictionary: { page: 0, filter: '' }, awards: { page: 0, filter: '' }, systems: { page: 0, filter: '' } },
@@ -767,7 +767,7 @@ const DICTIONARY_VIEWS = {
   awards: {
     label: 'Awards',
     intro:
-      'One row per award: its sponsor and draw account (used when the expenses don’t give them), a short goal that templates write with {{ goal }}, and, if it should not use its account’s usual wording, the Name of its template.',
+      'One row per award: its sponsor and draw account (used when the expenses don’t give them), a short goal that templates write with {{ goal }}, and the template picked for it on the Report, if it doesn’t use its usual one.',
   },
   systems: {
     label: 'Payment systems',
@@ -834,7 +834,6 @@ const waitingHint = (view = 'dictionary') => {
 /** The Awards table, with awards waiting for a goal pinned to the top. */
 const awardsTable = (flagged) => {
   const holder = el('div', { class: 'table-holder' });
-  const names = (state.report?.templates ?? []).map((t) => t.label);
   const { positions } = tableLayout(table('awards').grid, COLUMNS.awards);
   for (const index of waitingRows('awards')) {
     const award = cellText(table('awards').grid[index]?.[positions.Award]);
@@ -849,7 +848,7 @@ const awardsTable = (flagged) => {
     flagged,
     pinned: waitingRows('awards'),
     needs: 'Goal',
-    suggest: new Map([['Template', names]]),
+    readOnly: { Template: 'Choose an award’s template with the Template menu on the Report tab; it is saved here. Blank means the award uses its usual template.' },
     onEdit: (kind) => edited('awards', kind),
   });
   return holder;
@@ -948,7 +947,7 @@ const saveGoal = (award, goal) =>
     else setCell('awards', index, 'Goal', goal);
   });
 
-/** Saves which template an award uses (blank for its account's usual one) on the Awards sheet. */
+/** Saves which template an award uses (blank for its usual one) on the Awards sheet. */
 const saveTemplateChoice = (award, name) =>
   editAndRedraw('awards', () => {
     const index = findRow('awards', { Award: award });
@@ -1063,7 +1062,12 @@ const problemsWith = (account, award) => {
   return problems;
 };
 
-const sponsorLabel = (sponsor) => sponsor || 'No sponsor';
+/** The payment system an account's justifications go into, from the Payment systems sheet, else PMS. */
+const systemOf = (account) => account.paymentSystem ?? (state.report.paymentSystems.length > 0 ? null : { name: 'PMS', url: PAYMENT_SYSTEMS[0].url });
+const systemName = (account) => systemOf(account)?.name ?? 'No payment system';
+
+/** Why an award's usual template is its usual one, for the Template menu. */
+const usualNote = (usual) => (usual.source === 'default' ? 'default' : `for ${usual.scope}`);
 const remaining = (accounts) => accounts.reduce((n, a) => n + a.awards.filter((w) => !state.ui.copied.has(w.key)).length, 0);
 const progressBadge = (accounts) => {
   const left = remaining(accounts);
@@ -1093,8 +1097,7 @@ const copyJustification = async (account, award) => {
  * Payment systems sheet. A dictionary without that sheet links to PMS.
  */
 const systemLink = (account) => {
-  const listed = state.report.paymentSystems.length > 0;
-  const system = account.paymentSystem ?? (listed ? null : { name: 'PMS', url: PAYMENT_SYSTEMS[0].url });
+  const system = systemOf(account);
   if (!system) return null;
   return el(
     'a',
@@ -1146,7 +1149,6 @@ const awardPanel = (account, award) => {
     else goal.value = award.goal;
   });
 
-  const automatic = state.report.templates.find((t) => t.row === award.template?.automaticRow) ?? account.template;
   const picker = el(
     'select',
     {
@@ -1157,7 +1159,7 @@ const awardPanel = (account, award) => {
         else event.target.value = award.template?.chosen ? String(award.template.row) : 'auto';
       },
     },
-    el('option', { value: 'auto', selected: !award.template?.chosen }, automatic ? `${automatic.label} (the account’s usual)` : 'None'),
+    el('option', { value: 'auto', selected: !award.template?.chosen }, award.usual ? `${award.usual.label} (${usualNote(award.usual)})` : 'None'),
     state.report.templates.map((t) => el('option', { value: String(t.row), selected: Boolean(award.template?.chosen) && award.template.row === t.row }, t.label))
   );
 
@@ -1256,10 +1258,11 @@ const renderReport = () => {
     return fill(main(), el('h2', {}, 'Report'), notice('error', 'No costs map to the dictionary', ['Check that the CostCode values in the expenses match the dictionary.']));
   }
 
-  // Sponsor › draw account › award, each its own row of tabs.
-  const sponsors = [...new Set(report.accounts.map((a) => a.sponsor))].sort((a, b) => (a === '' ? 1 : b === '' ? -1 : a.localeCompare(b)));
-  if (!sponsors.includes(state.ui.sponsor)) state.ui.sponsor = sponsors[0];
-  const accounts = report.accounts.filter((a) => a.sponsor === state.ui.sponsor);
+  // Payment system › draw account › award, each its own row of tabs: the order
+  // you work in, signing in to a system, opening an account, then each award.
+  const systems = [...new Set(report.accounts.map(systemName))];
+  if (!systems.includes(state.ui.system)) state.ui.system = systems[0];
+  const accounts = report.accounts.filter((a) => systemName(a) === state.ui.system);
   if (!accounts.some((a) => a.key === state.ui.account)) state.ui.account = accounts[0].key;
   const account = accounts.find((a) => a.key === state.ui.account);
   if (!account.awards.some((w) => w.key === state.ui.award)) {
@@ -1272,12 +1275,12 @@ const renderReport = () => {
     renderReport();
   };
 
-  // Always shown, even for one sponsor, so the three levels read as a hierarchy.
-  const sponsorTabs = tabStrip(
-    sponsors.map((s) => ({ key: s, label: sponsorLabel(s), ...progressBadge(report.accounts.filter((a) => a.sponsor === s)) })),
-    state.ui.sponsor,
-    (value) => choose('sponsor', value),
-    { label: 'Sponsors', className: 'folder-tabs' }
+  // Always shown, even for one system, so the three levels read as a hierarchy.
+  const systemTabs = tabStrip(
+    systems.map((s) => ({ key: s, label: s, ...progressBadge(report.accounts.filter((a) => systemName(a) === s)) })),
+    state.ui.system,
+    (value) => choose('system', value),
+    { label: 'Payment systems', className: 'folder-tabs' }
   );
   const accountTabs = tabStrip(
     accounts.map((a) => ({ key: a.key, label: a.label, ...progressBadge([a]) })),
@@ -1316,11 +1319,11 @@ const renderReport = () => {
     el('h2', {}, 'Report'),
     el('p', { class: 'lead' }, 'Open each award, check its justification, and copy it into the payment system. Tabs count the awards left to copy.'),
     reportWarnings.length ? notice('warn', null, reportWarnings) : null,
-    // Sponsor › draw account › award, each a row of folder tabs over a panel holding the next level.
+    // Payment system › draw account › award, each a row of folder tabs over a panel holding the next level.
     level(
       1,
-      'Sponsor',
-      sponsorTabs,
+      'Payment system',
+      systemTabs,
       level(2, 'Draw account', accountTabs, level(3, 'Award', awardTabs, awardPanel(account, award)))
     ),
     el(

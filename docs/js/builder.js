@@ -201,6 +201,7 @@ const templateRows = (table) => {
       text: get('Template'),
       maxLength: get('MaxLength'),
       fallback: get('Fallback'),
+      isDefault: /^(true|yes|y|x|1|✓|✔)$/i.test(get('Default')),
     });
   }
   return rows;
@@ -277,7 +278,7 @@ export const renderTemplates = (container, app) => {
   }
 
   // Name, account and limit.
-  const nameInput = el('input', { type: 'text', id: 'template-name', value: current.name, placeholder: current.account || 'Default', spellcheck: false });
+  const nameInput = el('input', { type: 'text', id: 'template-name', value: current.name, placeholder: current.account || current.sponsor || 'Default', spellcheck: false });
   nameInput.addEventListener('change', () => {
     app.setCell(current.index, 'Name', nameInput.value.trim());
     app.onEdit();
@@ -298,6 +299,13 @@ export const renderTemplates = (container, app) => {
     app.onEdit();
     rerender();
   });
+  // One Default: ticking it here unticks the others.
+  const defaultBox = el('input', { type: 'checkbox', id: 'template-default', checked: current.isDefault });
+  defaultBox.addEventListener('change', () => {
+    for (const r of rows) app.setCell(r.index, 'Default', r.index === current.index && defaultBox.checked ? 'TRUE' : '');
+    app.onEdit();
+    rerender();
+  });
   const limitInput = el('input', { type: 'number', id: 'template-limit', min: 1, step: 1, value: current.maxLength, placeholder: 'None' });
   limitInput.addEventListener('input', () => {
     app.setCell(current.index, 'MaxLength', limitInput.value);
@@ -310,16 +318,26 @@ export const renderTemplates = (container, app) => {
     { class: 'template-settings' },
     el('div', { class: 'field' }, el('label', { for: 'template-name' }, 'Name'), nameInput),
     el(
+      'label',
+      {
+        class: 'default-check',
+        for: 'template-default',
+        title: 'Every award uses the Default template, unless its draw account or sponsor has its own or you pick another for it on the Report tab. Only one template is the Default.',
+      },
+      defaultBox,
+      'Default'
+    ),
+    el(
       'div',
       { class: 'field' },
-      el('label', { for: 'template-account', title: 'Awards in this draw account use this template unless you pick another on the Report tab. Leave blank for any account without its own.' }, 'Draw account'),
+      el('label', { for: 'template-account', title: 'Awards in this draw account use this template instead of the default, unless you pick another for an award on the Report tab.' }, 'Draw account'),
       accountInput,
       el('datalist', { id: listId }, app.accounts.map((a) => el('option', { value: a })))
     ),
     el(
       'div',
       { class: 'field' },
-      el('label', { for: 'template-sponsor', title: 'Accounts with this sponsor use this template unless they have their own, or you pick another on the Report tab.' }, 'Sponsor'),
+      el('label', { for: 'template-sponsor', title: 'This sponsor’s awards use this template instead of the default, unless their draw account has its own or you pick another on the Report tab.' }, 'Sponsor'),
       sponsorInput,
       el('datalist', { id: 'template-sponsors' }, (app.sponsors ?? []).map((a) => el('option', { value: a })))
     ),

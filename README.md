@@ -24,7 +24,7 @@ The page walks you through its steps, one tab at a time:
 2. **Expenses.** See the rows as Quick Draw read them. Rows whose cost code is not in the dictionary are shaded.
 3. **Data dictionary.** See and edit each code's budget category, and each award's goal. A cost code in the expenses that the dictionary lacks is added for you, highlighted at the top of the table, with whatever Quick Draw already knows about it filled in. Give it a category, or type `Exclude` to leave its costs out on purpose.
 4. **Templates.** Write the justification wording in the template builder, with a live preview for a real award.
-5. **Report.** Tabs for each sponsor, each of its draw accounts, and each award, counting the awards left to copy. For each award, pick its template if it needs a different one, read its justification, its costs and a bar chart of them, and **Copy** it into the payment system. Copy first warns about anything to fix: costs whose code is not in the dictionary, a missing goal, or text over the character limit. You can fill in an award's goal or its own code descriptions right there; they are saved to the dictionary. **Open PMS** (or whichever system the award's account uses) beside Copy opens the payment system to paste into. Download a workbook with one sheet per draw account.
+5. **Report.** Tabs for each payment system, each draw account in it, and each award, counting the awards left to copy: the order you work in, signing in to a system, opening an account, then entering each award. For each award, pick its template if it needs a different one, read its justification, its costs and a bar chart of them, and **Copy** it into the payment system. Copy first warns about anything to fix: costs whose code is not in the dictionary, a missing goal, or text over the character limit. You can fill in an award's goal or its own code descriptions right there; they are saved to the dictionary. **Open PMS** (or whichever system the award's account uses) beside Copy opens the payment system to paste into. Download a workbook with one sheet per draw account.
 6. **Help.** What HHS requires and how Quick Draw meets it, with links to the sources and payment systems; how the data dictionary works; writing templates; and what to export.
 
 Each tab has its own address, so you can link straight to one, for example [#help](https://ui-insight.github.io/quick-draw/#help). The others are `#files`, `#expenses`, `#dictionary` (with `#dictionary/awards` and `#dictionary/systems`), `#templates` and `#report`. Help has a page for each topic: `#help/dictionary`, `#help/templates`, `#help/export` and `#help/glossary` (`#requirements` still opens Help). The Glossary button in the header opens the glossary from any tab.
@@ -51,7 +51,7 @@ An Excel (`.xlsx`) or CSV file, one row per expense. Only the first sheet of a w
 | `CostCode` | yes | Your institution's expense or object code |
 | `Cost` | yes | The dollar amount. Commas, a `$` and negatives in parentheses are fine, and a lone `-` counts as zero. |
 | `DrawAccount` | no | The payment system account the award draws from |
-| `Sponsor` | no | The sponsor the draw account belongs to. Several accounts can share a sponsor, so you can write a mapping or template once for all of them. |
+| `Sponsor` | no | The award's sponsor (the agency). A mapping or template can be written once for all of a sponsor's awards. |
 | `CostDate` | no | The date of the expense, used for the period start and end. Excel dates, `2026-07-31`, `7/31/2026` and `31-JUL-26` all work. |
 
 ### 2. The data dictionary workbook
@@ -62,9 +62,9 @@ An Excel workbook with these sheets. Quick Draw finds each one by its columns, s
 |---|---|
 | **Read me** | Explains the workbook: what each sheet and column means, how Quick Draw picks a category, description and template, what templates can use, and a glossary. Quick Draw skips it, and adds one when you save a workbook that has none. |
 | **Cost codes** | Which sponsor budget category each cost code belongs to, with a plain-language description |
-| **Awards** | Each award's sponsor, draw account and short goal, and optionally which template it uses |
+| **Awards** | Each award's sponsor, draw account and short goal, and the template it uses if not its usual one |
 | **Templates** | The justification wording, as many versions as you like |
-| **Payment systems** | Where each award's payment requests go, with the link its **Open** button uses |
+| **Payment systems** | Which payment system each draw account uses, with the link its **Open** button uses |
 
 A CSV file also works as a dictionary, but it can only hold the cost codes. If you add goals or templates to one, it is saved as a workbook.
 
@@ -94,7 +94,7 @@ Quick Draw also warns you when two category names differ only by spacing, punctu
 | `DrawAccount` | no | The award's draw account, used when the expenses don't give one |
 | `Program` | no | The award's program name, for agencies that ask for it, such as DOL. Templates write it with `{{ program }}`. |
 | `Goal` | no | A few words on what the award is for, such as "mapping groundwater recharge in the upper basin" |
-| `Template` | no | The `Name` of the template this award uses, when it should read differently from the rest of its account |
+| `Template` | no | The `Name` of the template this award uses instead of its usual one. Set it with the Template menu on the Report tab; it is read-only on the Data dictionary tab. |
 
 With `Sponsor` and `DrawAccount` here, the expenses file can be as simple as `Award`, `CostCode` and `Cost`. When the expenses do give them and they differ, the expenses win and you are warned. Awards in the expenses that this sheet lacks are added for you, with their sponsor and draw account filled in and the empty goal highlighted.
 
@@ -107,8 +107,9 @@ One row per template.
 | Column | Required | What it holds |
 |---|---|---|
 | `Name` | no | A name to pick the template by. Without one, it is called by its draw account or sponsor, or "Default". |
-| `DrawAccount` | no | The account that uses this template automatically |
-| `Sponsor` | no | The sponsor whose accounts use this template automatically, unless an account has its own |
+| `Default` | no | `TRUE` on the one template every award uses unless something more specific applies. The **Default** box on the Templates tab sets it. |
+| `DrawAccount` | no | Awards in this draw account use this template instead of the default |
+| `Sponsor` | no | This sponsor's awards use this template instead of the default, unless their draw account has its own |
 | `Template` | yes | The justification text, in [Jinja](https://jinja.palletsprojects.com/en/stable/templates/) syntax |
 | `MaxLength` | no | The payment system's character limit, such as 1000. Justifications over it are flagged. |
 | `Fallback` | no | The `Name` of a shorter template to use for an award whose justification would run over `MaxLength`. The Report tab says when it was used. |
@@ -130,12 +131,18 @@ The sample dictionary comes with templates shaped by each agency's stated requir
 |---|---|---|
 | `Name` | yes | What the button says, such as PMS or Research.gov |
 | `URL` | yes | The address to open, starting with `https://` |
-| `DrawAccount` | no | Use this system for one draw account only |
-| `Sponsor` | no | Use this system for one sponsor's accounts, unless an account has its own |
+| `DrawAccount` | no | The draw account that uses this system. Leave it blank on one row to cover every other account. |
 
-Each award's **Open** button on the Report tab uses the row for its draw account, else for its sponsor, else the row with neither. A dictionary without this sheet links to PMS. The sample sends everything to [PMS](https://pms.psc.gov/) and shows a row sending the sponsor NSF to [Research.gov](https://www.research.gov/).
+Each draw account belongs to one payment system: the row naming it, else the row with `DrawAccount` blank. This goes by draw account, not sponsor, because one agency can use several systems: within DoD, ONR takes payment requests through WAWF while other offices use PMS, and within USDA, NIFA uses ASAP. The Report tab's top row of tabs groups draw accounts by system. A dictionary without this sheet links to PMS. The sample sends ACCT-C to [ASAP](https://www.asap.gov/) and everything else to [PMS](https://pms.psc.gov/).
 
-An award uses the template its row on the Awards sheet names. Otherwise it uses the first template for its draw account, else the first for its sponsor, else the first with neither. Picking a template for an award on the Report tab writes its name to the Awards sheet, so the choice is kept.
+#### Which template an award uses
+
+1. The one picked for it with the Template menu on the Report tab, which is saved in the `Template` column of the Awards sheet.
+2. Else its draw account's template.
+3. Else its sponsor's template.
+4. Else the template marked **Default**.
+
+The menu shows where the usual one comes from, such as "DOL VETS (for Sponsor B)" or "HHS and NIH (default)", and choosing it clears the award's own choice. Awards in one draw account can have different sponsors, and so different templates. A dictionary from before the `Default` column uses the first template with no draw account or sponsor, and says so.
 
 #### The template builder
 

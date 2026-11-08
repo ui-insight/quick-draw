@@ -25,12 +25,24 @@
   --note-bg: #eceef1;
   --note-text: #4d5562;
   --mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --level-1: #6446b8;
+  --level-1-bg: #eee9fb;
+  --level-2: #0b7470;
+  --level-2-bg: #ddf2ef;
+  --level-3: #1f62b5;
+  --level-3-bg: #e3eefb;
   --series-1: #2a78d6;
   color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
+    --level-1: #c4b3f4;
+    --level-1-bg: #2d2645;
+    --level-2: #7fd3cb;
+    --level-2-bg: #163735;
+    --level-3: #93c0f3;
+    --level-3-bg: #1b2c43;
     --bg: #161616;
     --surface: #1d1d1c;
     --panel: #232322;
@@ -788,6 +800,31 @@ details.help > summary {
 
 .field.narrow {
   flex: 0 1 130px;
+}
+
+.default-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  height: 38px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.default-check input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+/* A column edited elsewhere: shown, not typed in. */
+input.read-only {
+  color: var(--muted);
+  background: transparent;
+  cursor: default;
 }
 
 .field label,
@@ -2161,14 +2198,14 @@ main {
   left: 0;
   text-align: left;
   padding-left: 4px;
-  background: linear-gradient(to right, var(--bg) 55%, transparent);
+  background: linear-gradient(to right, var(--fade, var(--bg)) 55%, transparent);
 }
 
 .tab-scroll.ahead {
   right: 0;
   text-align: right;
   padding-right: 4px;
-  background: linear-gradient(to left, var(--bg) 55%, transparent);
+  background: linear-gradient(to left, var(--fade, var(--bg)) 55%, transparent);
 }
 
 .tab-scroll[hidden] {
@@ -2311,8 +2348,52 @@ main.wrap {
 }
 
 .level-label {
-  width: 9.5em;
+  width: auto;
+  min-width: 8.5em;
   white-space: nowrap;
+  box-sizing: border-box;
+  margin-bottom: 7px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  text-align: center;
+  color: var(--level-color);
+  background: var(--level-bg);
+}
+
+/* Each level has its own color: the label, and a stripe on its open tab. */
+.depth-1 > .level-head {
+  --level-color: var(--level-1);
+  --level-bg: var(--level-1-bg);
+  --fade: var(--bg);
+}
+
+.depth-2 > .level-head {
+  --level-color: var(--level-2);
+  --level-bg: var(--level-2-bg);
+  --fade: var(--panel);
+}
+
+.depth-3 > .level-head {
+  --level-color: var(--level-3);
+  --level-bg: var(--level-3-bg);
+  --fade: var(--surface);
+}
+
+.level-head [role='tab'][aria-selected='true'] {
+  box-shadow: inset 0 3px 0 var(--level-color), 0 -2px 4px rgb(0 0 0 / 0.04);
+}
+
+.level-head .tab-scroll {
+  color: var(--level-color);
+}
+
+@media (max-width: 760px) {
+  .level-label {
+    align-self: flex-start;
+    min-width: 0;
+    margin-bottom: 4px;
+    padding: 3px 9px;
+  }
 }
 
 .header-button {

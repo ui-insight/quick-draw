@@ -262,7 +262,9 @@ const TEMPLATES_GUIDE = {
       ),
       p(
         b('Which template an award uses:'),
-        ' the one named for it on the Awards sheet, else the first for its draw account, else for its sponsor, else the default. The Template menu on each award in the Report tab changes it.'
+        ' the one picked for it with the Template menu on the Report; else its draw account’s; else its sponsor’s; else the one with ',
+        b('Default'),
+        ' ticked. Set a template’s draw account, sponsor and Default at the top of this tab.'
       ),
       p(
         b('When something is wrong,'),
@@ -628,7 +630,7 @@ const ABOUT_GUIDE = {
       'a-systems',
       'Payment systems',
       el('ul', { class: 'guide-links' }, PAYMENT_SYSTEMS.map((s) => el('li', {}, link(s.url, s.name), ': ', s.who))),
-      p('The Payment systems sheet of your data dictionary says which one each sponsor or draw account uses; the Open button beside each justification goes there.')
+      p('One agency can use more than one: within DoD, ONR takes payment requests through WAWF while other offices use PMS, and within USDA, NIFA uses ASAP. So the Payment systems sheet of your data dictionary says which system each draw account uses, and the Report groups draw accounts by system. The Open button beside each justification goes there.')
     ),
     section(
       'a-sources',
@@ -786,7 +788,7 @@ const CODES_GUIDE = {
       'd-systems',
       'Payment systems: the columns',
       columnTable(COLUMN_HELP.systems),
-      p('Each award’s Open button uses the row for its draw account, else for its sponsor, else the row with neither. Without this sheet, Quick Draw links to PMS.')
+      p('Each draw account belongs to one payment system: the row naming it, else the row with DrawAccount blank. It goes by draw account, not sponsor, because one agency can use several systems. The Report’s top row of tabs groups accounts by system. Without this sheet, Quick Draw links to PMS.')
     ),
     section(
       'd-saving',

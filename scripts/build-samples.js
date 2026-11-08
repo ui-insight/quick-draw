@@ -23,20 +23,22 @@ const awards = [
   ['Award', 'Sponsor', 'DrawAccount', 'Program', 'Goal', 'Template'],
   ['AWD-1001', 'Sponsor A', 'ACCT-A', '', 'mapping groundwater recharge in the upper basin', ''],
   ['AWD-2001', 'Sponsor B', 'ACCT-B', 'Sample Workforce Program', 'training graduate students in field hydrology', ''],
+  ['AWD-3001', 'Sponsor C', 'ACCT-C', '', 'monitoring soil moisture on working farms', ''],
 ];
 
-// The standard templates. HHS and NIH is the default; Sponsor B's account uses the DOL format.
+// The standard templates. HHS and NIH is the Default; Sponsor B's awards use the DOL format.
 const sponsorFor = { 'DOL VETS': 'Sponsor B' };
 const templates = [
-  ['Name', 'DrawAccount', 'Sponsor', 'Template', 'MaxLength', 'Fallback'],
-  ...STANDARD_TEMPLATES.map((t) => [t.name, '', sponsorFor[t.name] ?? '', t.text, t.maxLength, t.fallback ?? '']),
+  ['Name', 'Default', 'DrawAccount', 'Sponsor', 'Template', 'MaxLength', 'Fallback'],
+  ...STANDARD_TEMPLATES.map((t, i) => [t.name, i === 0 ? 'TRUE' : '', '', sponsorFor[t.name] ?? '', t.text, t.maxLength, t.fallback ?? '']),
 ];
 
-// Where payment requests go. PMS for everything by default; NSF shows a sponsor that draws elsewhere.
+// Which system each draw account requests payment through: ACCT-C is an ASAP
+// account, and every other account is in PMS.
 const systems = [
-  ['Name', 'URL', 'DrawAccount', 'Sponsor'],
-  ['PMS', 'https://pms.psc.gov/', '', ''],
-  ['Research.gov', 'https://www.research.gov/', '', 'NSF'],
+  ['Name', 'URL', 'DrawAccount'],
+  ['PMS', 'https://pms.psc.gov/', ''],
+  ['ASAP', 'https://www.asap.gov/', 'ACCT-C'],
 ];
 
 const bytes = await writeXlsx(loadExcelJS(), [

@@ -118,13 +118,14 @@ test('sheets are recognized by their columns before their names', () => {
 
 test('sample files build the expected report', () => {
   const report = sampleReport();
-  assert.deepEqual(report.accounts.map((a) => [a.account, a.sponsor]), [
-    ['ACCT-A', 'Sponsor A'],
-    ['ACCT-B', 'Sponsor B'],
+  assert.deepEqual(report.accounts.map((a) => [a.account, a.sponsors]), [
+    ['ACCT-A', ['Sponsor A']],
+    ['ACCT-B', ['Sponsor B']],
+    ['ACCT-C', ['Sponsor C']],
   ]);
   assert.deepEqual(report.templates.map((t) => t.label), ['HHS and NIH', 'HHS and NIH, short', 'DOL VETS', 'NASA']);
 
-  const [a, b] = report.accounts;
+  const [a, b, c] = report.accounts;
   const awd1001 = a.awards.find((w) => w.award === 'AWD-1001');
   assert.deepEqual(
     awd1001.categories.map((c) => [c.name, c.cents]),
@@ -137,6 +138,7 @@ test('sample files build the expected report', () => {
   );
   assert.equal(awd1001.totalCents, 1176455);
   assert.equal(awd1001.template.label, 'HHS and NIH');
+  assert.deepEqual(awd1001.usual, { row: 2, label: 'HHS and NIH', source: 'default', scope: '' });
   // The HHS template: each cost with what it paid for, when, and how it supports the award.
   assert.equal(
     awd1001.justification,
@@ -156,7 +158,8 @@ test('sample files build the expected report', () => {
 
   // Sponsor B uses the DOL format: program, period, and each category's amount, adding up to the total.
   const awd2001 = b.awards[0];
-  assert.equal(b.template.label, 'DOL VETS');
+  assert.equal(awd2001.template.label, 'DOL VETS');
+  assert.deepEqual([awd2001.usual.source, awd2001.usual.scope], ['sponsor', 'Sponsor B']);
   assert.equal(
     awd2001.justification,
     'These funds are for expenditures under the Sample Workforce Program, for the period 07/03/2026 to 08/02/2026, for fringe benefits ($1,116.00), materials & supplies ($285.40), other direct costs - equipment rental ($950.00), and salaries & wages ($3,600.00) as outlined in the grant award.'
@@ -165,6 +168,9 @@ test('sample files build the expected report', () => {
   assert.equal(listed, awd2001.totalCents);
   // A negative cost nets against the category.
   assert.equal(awd2001.categories.find((c) => c.name === 'Materials & Supplies').cents, 28540);
+
+  // Sponsor C has no template of its own, so it gets the Default.
+  assert.equal(c.awards[0].template.label, 'HHS and NIH');
 
   assert.deepEqual(report.unmapped, [{ code: 'C900', cents: 7500, accounts: ['ACCT-A'], awards: ['AWD-1002'] }]);
   assert.deepEqual(report.warnings, []);
@@ -209,13 +215,43 @@ test('a draw account row beats a sponsor row, which beats a general row', () => 
   const report = buildReport({
     expenses: csv('Award,DrawAccount,Sponsor,CostCode,Cost\nA1,X,S,C1,1\nA2,Y,S,C1,1\nA3,Z,T,C1,1', 'expenses'),
     dictionary: csv('CostCode,BudgetCategory,DrawAccount,Sponsor\nC1,General,,\nC1,For S,,S\nC1,For X,X,S', 'dictionary'),
-    templates: csv('Name,DrawAccount,Sponsor,Template\nAll,,,all {{ sponsor }}\nS only,,S,s {{ sponsor }}\nX only,X,,x {{ account }}', 'templates'),
+    templates: csv('Name,Default,DrawAccount,Sponsor,Template\nSpare,,,,spare\nAll,TRUE,,,all {{ sponsor }}\nS only,,,S,s {{ sponsor }}\nX only,,X,,x {{ account }}', 'templates'),
   });
   const by = Object.fromEntries(report.accounts.map((a) => [a.account, a]));
   assert.equal(by.X.awards[0].categories[0].name, 'For X');
   assert.equal(by.Y.awards[0].categories[0].name, 'For S');
   assert.equal(by.Z.awards[0].categories[0].name, 'General');
+  // Templates: the award's draw account, else its sponsor, else the one marked Default.
   assert.deepEqual([by.X, by.Y, by.Z].map((a) => a.awards[0].justification), ['x X', 's S', 'all T']);
+  assert.deepEqual([by.X, by.Y, by.Z].map((a) => a.awards[0].usual.source), ['account', 'sponsor', 'default']);
+  assert.deepEqual(report.warnings, []);
+});
+
+test('awards in one draw account can have different sponsors, and so different templates', () => {
+  const report = buildReport({
+    expenses: csv('Award,DrawAccount,Sponsor,CostCode,Cost\nA1,P,NIH,C1,1\nA2,P,DOL,C1,1', 'expenses'),
+    dictionary: csv('CostCode,BudgetCategory\nC1,Travel', 'dictionary'),
+    templates: csv('Name,Default,Sponsor,Template\nHHS,yes,,hhs\nDOL,,DOL,dol', 'templates'),
+  });
+  assert.deepEqual(report.accounts.map((a) => a.sponsors), [['DOL', 'NIH']]);
+  assert.deepEqual(report.accounts[0].awards.map((w) => w.justification), ['hhs', 'dol']);
+  assert.deepEqual(report.warnings, []);
+});
+
+test('the Default template: the one ticked, else the first with no account or sponsor', () => {
+  const build = (templates) =>
+    buildReport({
+      expenses: csv('Award,CostCode,Cost\nA1,C1,1', 'expenses'),
+      dictionary: csv('CostCode,BudgetCategory\nC1,Travel', 'dictionary'),
+      templates: csv(templates, 'templates'),
+    });
+  const older = build('Name,Template\nFirst,one\nSecond,two');
+  assert.equal(older.accounts[0].awards[0].justification, 'one');
+  assert.match(older.warnings.map((w) => w.text).join('\n'), /No template is marked Default, so First is used/);
+  const two = build('Name,Default,Template\nFirst,,one\nSecond,TRUE,two\nThird,x,three');
+  assert.equal(two.accounts[0].awards[0].justification, 'two');
+  assert.match(two.warnings.map((w) => w.text).join('\n'), /More than one template is marked Default \(Second, Third\)/);
+  assert.deepEqual(two.templates.map((t) => t.isDefault), [false, true, false]);
 });
 
 test('awards file problems and missing goals', () => {
@@ -296,26 +332,28 @@ test('the downloaded report opens with a Read me saying what it holds', async ()
   const report = sampleReport();
   const workbook = buildWorkbook(ExcelJS, report, undefined, { expensesFile: 'expenses.csv', dictionaryFile: 'dictionary.xlsx', made: new Date(2026, 10, 7, 9, 5) });
   const sheets = await readXlsxSheets(ExcelJS, await workbook.xlsx.writeBuffer());
-  assert.deepEqual([...sheets].map((sheet) => String(sheet.name)), ['Read me', 'ACCT-A', 'ACCT-B', 'Unmapped codes']);
+  assert.deepEqual([...sheets].map((sheet) => String(sheet.name)), ['Read me', 'ACCT-A', 'ACCT-B', 'ACCT-C', 'Unmapped codes']);
   const readMe = new Map([...sheets[0].grid].map((row) => [String(row[0] ?? ''), String(row[1] ?? '')]));
   assert.equal(readMe.get('Made'), '2026-11-07 09:05');
   assert.equal(readMe.get('Expenses file'), 'expenses.csv');
-  assert.equal(readMe.get('Covers'), '3 awards in 2 draw accounts, $22,418.45 in all.');
-  assert.equal(readMe.get('ACCT-B'), 'Draw account ACCT-B (Sponsor B): 1 award.');
+  assert.equal(readMe.get('Covers'), '4 awards in 3 draw accounts, $26,650.65 in all.');
+  assert.equal(readMe.get('ACCT-B'), 'Draw account ACCT-B (PMS): 1 award.');
+  assert.equal(readMe.get('ACCT-C'), 'Draw account ACCT-C (ASAP): 1 award.');
   assert.match(readMe.get('Unmapped codes'), /\$75\.00 in 1 code not in the dictionary: C900/);
 });
 
-test('each account links to its payment system: account, then sponsor, then the default', () => {
+test('each draw account has one payment system: its own row, else the row with no account', () => {
+  // One agency can draw through several systems, so the sponsor doesn't decide it.
   const report = buildReport({
-    expenses: csv('Award,DrawAccount,Sponsor,CostCode,Cost\nA1,X,NSF,C1,1\nA2,Y,NIH,C1,1\nA3,Z,NIH,C1,1', 'expenses'),
+    expenses: csv('Award,DrawAccount,Sponsor,CostCode,Cost\nA1,X,DoD,C1,1\nA2,Y,DoD,C1,1\nA3,Z,NIH,C1,1', 'expenses'),
     dictionary: csv('CostCode,BudgetCategory\nC1,Travel', 'dictionary'),
-    templates: csv('Template\nok', 'templates'),
-    systems: csv('Name,URL,DrawAccount,Sponsor\nPMS,https://pms.psc.gov/,,\nResearch.gov,https://www.research.gov/,,NSF\nOther,https://example.org/,Z,\nBad,not a link,,', 'systems'),
+    templates: csv('Default,Template\nTRUE,ok', 'templates'),
+    systems: csv('Name,URL,DrawAccount\nPMS,https://pms.psc.gov/,\nWAWF,https://piee.eb.mil/,X\nOther,https://example.org/,Z\nBad,not a link,', 'systems'),
   });
   assert.deepEqual(
     report.accounts.map((a) => [a.account, a.paymentSystem?.name]),
     [
-      ['X', 'Research.gov'],
+      ['X', 'WAWF'],
       ['Y', 'PMS'],
       ['Z', 'Other'],
     ]
@@ -323,9 +361,10 @@ test('each account links to its payment system: account, then sponsor, then the 
   assert.match(report.warnings.map((w) => w.text).join('\n'), /Row 5 \(Bad\) needs a URL starting with https/);
 });
 
-test('the sample sends everything to PMS', () => {
+test('the sample sends ACCT-C to ASAP and the rest to PMS', () => {
   assert.deepEqual(sampleReport().accounts.map((a) => a.paymentSystem), [
     { name: 'PMS', url: 'https://pms.psc.gov/' },
     { name: 'PMS', url: 'https://pms.psc.gov/' },
+    { name: 'ASAP', url: 'https://www.asap.gov/' },
   ]);
 });

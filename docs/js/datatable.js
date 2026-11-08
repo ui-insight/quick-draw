@@ -47,11 +47,12 @@ const autoWidth = (texts) => {
  *   name       remembers dragged column widths under this name
  *   columnHelp { column name: what it means }, shown when you point at a heading
  *   appliesTo  (grid row) -> { text, kind } for a read-only "Applies to" column
+ *   readOnly   { column name: why } for columns edited elsewhere, shown but not typed in
  *   onEdit(kind) called after any edit; kind is 'rows' when rows were added
  *              or deleted. Returning true means the caller has redrawn the table.
  */
 export const renderDataTable = (container, options) => {
-  const { table, columns, view, flagged = new Map(), pinned = new Set(), needs = null, suggest = new Map(), onEdit, name = 'table', columnHelp = {}, appliesTo = null } = options;
+  const { table, columns, view, flagged = new Map(), pinned = new Set(), needs = null, suggest = new Map(), onEdit, name = 'table', columnHelp = {}, appliesTo = null, readOnly = {} } = options;
   const APPLIES_WIDTH = 190;
   const grid = table.grid;
   const { headerIndex, positions } = tableLayout(grid, columns);
@@ -120,6 +121,7 @@ export const renderDataTable = (container, options) => {
     'Add a row'
   );
 
+  const known = new Map(Object.entries(positions).map(([column, index]) => [index, column]));
   const cellInput = (r, c) => {
     const input = el('input', {
       type: 'text',
@@ -129,6 +131,13 @@ export const renderDataTable = (container, options) => {
     });
     // The saved value, so a redraw can tell whether this cell is mid-edit.
     input.defaultValue = input.value;
+    const lockedBecause = readOnly[known.get(c)];
+    if (lockedBecause) {
+      input.readOnly = true;
+      input.classList.add('read-only');
+      input.title = lockedBecause;
+      return input;
+    }
     if (listIds.has(c)) input.setAttribute('list', listIds.get(c).id);
     input.addEventListener('change', () => {
       if (!grid[r]) grid[r] = [];
@@ -145,7 +154,6 @@ export const renderDataTable = (container, options) => {
   };
 
   // What each heading means, for the columns Quick Draw reads.
-  const known = new Map(Object.entries(positions).map(([column, index]) => [index, column]));
   const headingTip = (c) => (known.has(c) ? columnHelp[known.get(c)] ?? null : 'Not used by Quick Draw');
 
   const body = shown.map((r) => {
