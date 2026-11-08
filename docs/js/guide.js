@@ -3,7 +3,7 @@
 // real template engine, with the same colored blocks the editor uses, so what
 // a guide shows is what Quick Draw would write.
 
-import { GOAL_MARKER, STANDARD_TEMPLATES, compileTemplate, parseDay, templateValues } from './core.js';
+import { COLUMN_HELP, EXCLUDE, GLOSSARY, GOAL_MARKER, STANDARD_TEMPLATES, compileTemplate, parseDay, templateValues } from './core.js';
 import { builderNodes } from './blocks.js';
 import { writeLoop } from './loopsyntax.js';
 import { el, fill } from './dom.js';
@@ -729,7 +729,94 @@ const EXPORT_GUIDE = {
   ],
 };
 
-const GUIDES = { templates: TEMPLATES_GUIDE, loops: LOOPS_GUIDE, about: ABOUT_GUIDE, export: EXPORT_GUIDE, hhs: HHS_WORDING };
+// ------------------------------------------------------------ dictionary
+
+const columnTable = (help) =>
+  el('table', { class: 'help-table guide-map' }, el('tbody', {}, Object.entries(help).map(([column, text]) => el('tr', {}, el('td', {}, el('code', {}, column)), el('td', {}, text)))));
+
+const CODES_GUIDE = {
+  kicker: 'Guide',
+  title: 'The data dictionary',
+  sections: () => [
+    section(
+      'd-sheets',
+      'What it holds',
+      p('One Excel workbook you keep and bring back each time. Quick Draw finds each sheet by its columns, so the names and order don’t matter.'),
+      el(
+        'ul',
+        {},
+        el('li', {}, b('Cost codes'), ': each cost code’s sponsor budget category and description.'),
+        el('li', {}, b('Awards'), ': each award’s sponsor, draw account, goal and, optionally, its template.'),
+        el('li', {}, b('Templates'), ': the justification wording.'),
+        el('li', {}, b('Payment systems'), ': where each award’s requests go.'),
+        el('li', {}, b('Read me'), ': explains the workbook; Quick Draw skips it.')
+      )
+    ),
+    section('d-columns', 'Cost codes: the columns', columnTable(COLUMN_HELP.dictionary)),
+    section(
+      'd-rows',
+      'Why a code can have more than one row',
+      p(
+        'List each code once with DrawAccount and Sponsor blank. That row applies ',
+        b('everywhere'),
+        '. Add another row for the same code only where one draw account or sponsor puts it in a different category. For each expense, Quick Draw uses the row for its draw account if there is one, else the row for its sponsor, else the everywhere row. The ',
+        b('Applies to'),
+        ' column on the Data dictionary tab shows which is which.'
+      )
+    ),
+    section(
+      'd-award',
+      'A description for one award',
+      p(
+        'To describe a code differently for one award, add a row with the CostCode, the Award and the new Description, and leave BudgetCategory blank. The easy way: on the Report tab, open the award and choose ',
+        b('Describe these codes differently for this award'),
+        '. Quick Draw adds the rows for you.'
+      )
+    ),
+    section('d-exclude', 'Leaving costs out', p(`A BudgetCategory of ${EXCLUDE} leaves that code’s costs out of every total, such as costs that can’t be drawn down.`)),
+    section(
+      'd-missing',
+      'Codes and awards that are missing',
+      p(
+        'When the expenses have a cost code or award the dictionary doesn’t, Quick Draw adds a row for it, highlighted at the top of the table with what it already knows filled in. Fill in the highlighted cell: the BudgetCategory for a code, the Goal for an award. Point at a highlighted row to see why it’s there.'
+      )
+    ),
+    section('d-awards', 'Awards: the columns', columnTable(COLUMN_HELP.awards)),
+    section(
+      'd-systems',
+      'Payment systems: the columns',
+      columnTable(COLUMN_HELP.systems),
+      p('Each award’s Open button uses the row for its draw account, else for its sponsor, else the row with neither. Without this sheet, Quick Draw links to PMS.')
+    ),
+    section(
+      'd-saving',
+      'Saving',
+      p(
+        'Changes you make in Quick Draw are only in the page until you save the dictionary from the bar at the top of the Data dictionary or Templates tab. In Chrome and Edge, Save writes over the file you opened; in Safari and Firefox, it saves a copy to your Downloads, to use in place of the old one.'
+      )
+    ),
+  ],
+};
+
+const GLOSSARY_GUIDE = {
+  kicker: 'Glossary',
+  title: 'Terms used in Quick Draw',
+  sections: () => [
+    el(
+      'section',
+      { class: 'guide-section', id: 'g-terms' },
+      el(
+        'dl',
+        { class: 'glossary' },
+        [...GLOSSARY]
+          .sort(([a], [b]) => a.localeCompare(b))
+          .flatMap(([term, meaning]) => [el('dt', {}, term), el('dd', {}, meaning)])
+      )
+    ),
+  ],
+};
+
+const GUIDES = { templates: TEMPLATES_GUIDE, loops: LOOPS_GUIDE, about: ABOUT_GUIDE, export: EXPORT_GUIDE, hhs: HHS_WORDING, codes: CODES_GUIDE, glossary: GLOSSARY_GUIDE };
 
 /** Renders a guide as a page inside `container`, for the tab that shows it. */
 export const renderGuidePage = (container, which) => {
@@ -742,11 +829,11 @@ export const renderGuidePage = (container, which) => {
       el(
         'button',
         { type: 'button', class: 'link-button', onclick: () => node.scrollIntoView({ behavior: 'smooth', block: 'start' }) },
-        node.querySelector('h3').textContent
+        node.querySelector('h3')?.textContent
       )
     )
   );
-  fill(container, el('div', { class: 'guide-page' }, el('h2', {}, guide.title), guide.lead?.(), guide.after?.(), contents, sections));
+  fill(container, el('div', { class: 'guide-page' }, el('h2', {}, guide.title), guide.lead?.(), guide.after?.(), sections.length > 1 ? contents : null, sections));
 };
 
 /** Opens a guide, 'templates', 'loops', 'about' or 'export', as one scrolling page. */
@@ -771,11 +858,11 @@ export const openGuide = (which = 'templates') => {
           class: 'link-button',
           onclick: () => body.querySelector(`#${node.id}`).scrollIntoView({ behavior: 'smooth', block: 'start' }),
         },
-        node.querySelector('h3').textContent
+        node.querySelector('h3')?.textContent
       )
     )
   );
-  fill(body, guide.lead?.(), guide.after?.(), contents, sections);
+  fill(body, guide.lead?.(), guide.after?.(), sections.length > 1 ? contents : null, sections);
 
   dialog.append(
     el(

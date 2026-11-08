@@ -461,6 +461,40 @@ export const exampleValues = () =>
     'Sponsor A'
   );
 
+/** What each column means, shown when you point at its heading. */
+export const COLUMN_HELP = {
+  systems: {
+    Name: 'What to call the system on each award’s button, such as PMS or Research.gov.',
+    URL: 'The address the button opens, starting with https://.',
+    DrawAccount: 'Fill in to use this system for one draw account only.',
+    Sponsor: 'Fill in to use this system for one sponsor’s accounts, unless an account has its own.',
+  },
+  expenses: {
+    Award: 'The award or grant this cost belongs to.',
+    CostCode: 'Your institution’s expense or object code. The data dictionary turns it into a budget category.',
+    Cost: 'The dollar amount. Negative amounts (credits) reduce the total.',
+    DrawAccount: 'The payment-system account the award draws from. Optional: the Awards sheet can supply it.',
+    Sponsor: 'The sponsor the draw account belongs to. Optional: the Awards sheet can supply it.',
+    CostDate: 'When the cost happened. The earliest and latest dates become the period in the justification.',
+  },
+  dictionary: {
+    CostCode: 'The cost code, exactly as it appears in the expenses.',
+    BudgetCategory: `The sponsor budget category this code is totaled under, such as Travel. Type ${EXCLUDE} to leave the code’s costs out on purpose. Leave blank on a row that names an Award.`,
+    Description: 'What the code pays for, in words a sponsor would understand. Templates can include it.',
+    DrawAccount: 'Fill in only to make this row apply to one draw account, when that account categorizes the code differently.',
+    Sponsor: 'Fill in only to make this row apply to one sponsor’s accounts, when that sponsor categorizes the code differently.',
+    Award: 'Fill in, with a Description, to describe this code differently for one award. The row’s category is not used.',
+  },
+  awards: {
+    Award: 'The award or grant, exactly as it appears in the expenses.',
+    Sponsor: 'The award’s sponsor. Used when the expenses don’t say.',
+    DrawAccount: 'The payment-system account the award draws from. Used when the expenses don’t say.',
+    Goal: 'A few words on what the award is for. Templates write it with {{ goal }}.',
+    Template: 'Optional: the Name of the template this award uses, if not its account’s usual one.',
+  },
+};
+
+
 // ---------------------------------------------------- standard templates
 
 /** A list in a sentence: "A and B", or "A, B, and C". */
@@ -507,6 +541,38 @@ export const STANDARD_TEMPLATES = [
     text: `Payment of \${{ total }} is requested for ${listOf('{{ c.name }} (${{ c.amount }})')} in accordance with the pre-approved budget categories of award {{ award }}, to support {{ goal }}.`,
     maxLength: 1000,
   },
+];
+
+// ------------------------------------------------------------ glossary
+
+/** What the terms in Quick Draw mean. The Help tab, the Glossary window and the Read me sheet all use this. */
+export const GLOSSARY = [
+  ['Award', 'A grant or cooperative agreement, identified by its award number. Each award is one row group in the expenses and one tab on the Report.'],
+  ['Subaccount', 'In PMS, the account for one award under a recipient’s draw account. HHS asks for a justification for each subaccount.'],
+  ['Draw account', 'The payment-system account an award draws its funds from; in PMS, the account its subaccount sits under. Groups awards on the Report.'],
+  ['Sponsor', 'The organization funding the award, such as NIH. Several draw accounts can share a sponsor.'],
+  ['Payment system', 'Where payment requests are made: PMS for HHS and many other agencies, ASAP, Research.gov for NSF. Listed on the Payment systems sheet.'],
+  ['PMS', 'The HHS Payment Management System. Since March 17, 2025, each payment request in it needs a justification of up to 1,000 characters.'],
+  ['Drawdown', 'A request for award funds from the payment system, usually to reimburse costs already paid.'],
+  ['Defend the Spend', 'The review system where agencies approve, question or reject each payment request and its justification.'],
+  ['Justification', 'The short statement sent with a payment request saying what the money is for and how it relates to the award.'],
+  ['Expenses file', 'An export from your financial system with one row per expense: award, cost code, amount and, ideally, date.'],
+  ['Data dictionary', 'The Excel workbook you keep for Quick Draw, with its Cost codes, Awards, Templates and Payment systems sheets.'],
+  ['Cost code', 'Your institution’s code for a kind of expense, also called an object or expense code.'],
+  ['Budget category', 'The sponsor’s budget line a cost is reported under, such as Travel or Fringe Benefits.'],
+  ['Description', 'Plain words for what a cost code pays for. An award can have its own description of a code.'],
+  ['Exclude', 'A budget category that leaves a code’s costs out of every total, for costs that can’t be drawn down.'],
+  ['Unmapped code', 'A cost code in the expenses that the dictionary doesn’t list. Its costs are left out until it gets a budget category.'],
+  ['Goal', 'A few words on what an award is for, kept on the Awards sheet. Templates write it with {{ goal }}.'],
+  ['Program', 'An award’s program name, for agencies that ask for it, such as DOL.'],
+  ['Template', 'A justification’s wording with blanks that Quick Draw fills in for each award.'],
+  ['Standard template', 'A template shaped by an agency’s stated requirements: HHS and NIH, DOL VETS or NASA.'],
+  ['Fallback template', 'A shorter template used automatically for an award whose justification would run over the character limit.'],
+  ['Character limit', 'The most characters a payment system accepts in a justification; 1,000 in PMS.'],
+  ['Value', 'A blue block in a template, such as Award or Total, that Quick Draw fills in for each award.'],
+  ['Loop', 'A green block that writes the same words for each item in a list, such as each budget category.'],
+  ['Condition', 'A purple block that writes its words only when something is there, such as dates.'],
+  ['Jinja', 'The template language Quick Draw’s templates are written in; the Jinja view shows it.'],
 ];
 
 // ------------------------------------------------------------ read me
@@ -592,16 +658,7 @@ export const readMeRows = () => {
   gap();
 
   heading('Glossary');
-  row('Award', 'A grant or contract, identified by its award number.');
-  row('Draw account', 'The payment-system account an award draws its funds from.');
-  row('Sponsor', 'The organization funding the award. Several draw accounts can share a sponsor.');
-  row('Cost code', 'Your institution’s code for a kind of expense, also called an object or expense code.');
-  row('Budget category', 'The sponsor’s budget line a cost is reported under, such as Travel or Fringe Benefits.');
-  row('Goal', 'A short statement of what an award is for.');
-  row('Justification', 'The short statement, required by many payment systems, of what a drawdown paid for.');
-  row('Template', 'The justification’s wording with blanks for each award’s values.');
-  row('Character limit', 'The most characters the payment system accepts in a justification.');
-  row('Unmapped code', 'A cost code in the expenses that this workbook does not list. Its costs are left out until it is added.');
+  for (const [term, meaning] of GLOSSARY) row(term, meaning);
   return rows;
 };
 

@@ -2191,3 +2191,172 @@ main.wrap {
   padding-top: 1.75rem;
   padding-bottom: 0.5rem;
 }
+
+/* In the Help tab, each guide's title sits under the Help heading. */
+.help-hub .guide-page > h2 {
+  font-size: 1.25rem;
+  margin-top: 0.5rem;
+}
+
+.lead-with-help {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.lead-with-help .help-button {
+  margin-top: 2px;
+}
+
+/* ---------------------------------------- report: sponsor › account › award */
+
+.report-level {
+  margin-top: 12px;
+}
+
+.level-head {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.level-label {
+  flex: none;
+  width: 7.5em;
+  padding-bottom: 9px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.level-head .tabs-frame {
+  flex: 1;
+  min-width: 0;
+}
+
+.folder-tabs.tabs,
+.tabs-frame.folder-tabs > .tabs {
+  border-bottom: none;
+  gap: 4px;
+}
+
+/* Folder tabs: the selected one joins the panel under it. */
+.level-head [role='tab'] {
+  position: relative;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  margin-bottom: -1px;
+  padding: 8px 14px 7px;
+  font-size: 0.92rem;
+}
+
+.level-head [role='tab'][aria-selected='true'] {
+  z-index: 1;
+  border-color: var(--border);
+  border-bottom-color: transparent;
+  box-shadow: 0 -2px 4px rgb(0 0 0 / 0.04);
+}
+
+.level-panel {
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px 16px;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.06);
+}
+
+/* Shading alternates so each level shows inside the one above. */
+.depth-1 > .level-panel,
+.depth-1 > .level-head [role='tab'][aria-selected='true'] {
+  background: var(--panel);
+}
+
+.depth-2 > .level-panel,
+.depth-2 > .level-head [role='tab'][aria-selected='true'],
+.depth-3 > .level-panel,
+.depth-3 > .level-head [role='tab'][aria-selected='true'] {
+  background: var(--surface);
+}
+
+.depth-3 > .level-head [role='tab'][aria-selected='true'] {
+  background: var(--surface);
+}
+
+.report-level .report-level {
+  margin-top: 0;
+}
+
+.award-panel.level-panel {
+  border-top: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+@media (max-width: 760px) {
+  .level-head {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 2px;
+  }
+
+  .level-label {
+    padding: 0 0 0 2px;
+  }
+
+  .level-panel {
+    padding: 10px;
+  }
+}
+
+.level-label {
+  width: 9.5em;
+  white-space: nowrap;
+}
+
+.header-button {
+  margin-left: auto;
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.92rem;
+  color: var(--muted);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+.header-button:hover {
+  color: var(--text);
+}
+
+.header-button + .repo-link {
+  margin-left: 0;
+}
+
+.glossary {
+  display: grid;
+  grid-template-columns: minmax(9em, max-content) 1fr;
+  gap: 8px 20px;
+  margin: 0;
+}
+
+.glossary dt {
+  font-weight: 700;
+}
+
+.glossary dd {
+  margin: 0;
+}
+
+@media (max-width: 600px) {
+  .glossary {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+
+  .glossary dd {
+    margin-bottom: 10px;
+  }
+}

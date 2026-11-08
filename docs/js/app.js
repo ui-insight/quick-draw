@@ -7,6 +7,7 @@
 
 import {
   COLUMNS,
+  COLUMN_HELP,
   DICTIONARY_SHEETS,
   EXCLUDE,
   GOAL_MARKER,
@@ -525,7 +526,7 @@ const DICTIONARY_HASH = { dictionary: '', awards: 'awards', systems: 'systems' }
 
 const addressFor = () => {
   const { tab, dictionaryView } = state.ui;
-  const sub = tab === 'dictionary' ? DICTIONARY_HASH[dictionaryView] : '';
+  const sub = tab === 'dictionary' ? DICTIONARY_HASH[dictionaryView] : tab === 'help' && state.ui.helpView !== 'requirements' ? state.ui.helpView : '';
   return `#${tab}${sub ? `/${sub}` : ''}`;
 };
 
@@ -535,6 +536,7 @@ const fromAddress = () => {
   // Older links used #requirements for the Help tab.
   const tab = asked === 'requirements' ? 'help' : asked;
   state.ui.tab = STEPS.some((step) => step.key === tab) ? tab : 'files';
+  if (state.ui.tab === 'help') state.ui.helpView = ['dictionary', 'templates', 'export', 'glossary'].includes(sub) ? sub : 'requirements';
   if (state.ui.tab === 'dictionary') {
     state.ui.dictionaryView = Object.keys(DICTIONARY_HASH).find((view) => DICTIONARY_HASH[view] === (sub ?? '')) ?? 'dictionary';
   }
@@ -746,39 +748,6 @@ const renderExpenses = () => {
   updateSaveBar('expenses');
 };
 
-/** What each column means, shown when you point at its heading. */
-const COLUMN_HELP = {
-  systems: {
-    Name: 'What to call the system on each award’s button, such as PMS or Research.gov.',
-    URL: 'The address the button opens, starting with https://.',
-    DrawAccount: 'Fill in to use this system for one draw account only.',
-    Sponsor: 'Fill in to use this system for one sponsor’s accounts, unless an account has its own.',
-  },
-  expenses: {
-    Award: 'The award or grant this cost belongs to.',
-    CostCode: 'Your institution’s expense or object code. The data dictionary turns it into a budget category.',
-    Cost: 'The dollar amount. Negative amounts (credits) reduce the total.',
-    DrawAccount: 'The payment-system account the award draws from. Optional: the Awards sheet can supply it.',
-    Sponsor: 'The sponsor the draw account belongs to. Optional: the Awards sheet can supply it.',
-    CostDate: 'When the cost happened. The earliest and latest dates become the period in the justification.',
-  },
-  dictionary: {
-    CostCode: 'The cost code, exactly as it appears in the expenses.',
-    BudgetCategory: `The sponsor budget category this code is totaled under, such as Travel. Type ${EXCLUDE} to leave the code’s costs out on purpose. Leave blank on a row that names an Award.`,
-    Description: 'What the code pays for, in words a sponsor would understand. Templates can include it.',
-    DrawAccount: 'Fill in only to make this row apply to one draw account, when that account categorizes the code differently.',
-    Sponsor: 'Fill in only to make this row apply to one sponsor’s accounts, when that sponsor categorizes the code differently.',
-    Award: 'Fill in, with a Description, to describe this code differently for one award. The row’s category is not used.',
-  },
-  awards: {
-    Award: 'The award or grant, exactly as it appears in the expenses.',
-    Sponsor: 'The award’s sponsor. Used when the expenses don’t say.',
-    DrawAccount: 'The payment-system account the award draws from. Used when the expenses don’t say.',
-    Goal: 'A few words on what the award is for. Templates write it with {{ goal }}.',
-    Template: 'Optional: the Name of the template this award uses, if not its account’s usual one.',
-  },
-};
-
 /** Where a Cost codes row applies, worked out from its DrawAccount, Sponsor and Award. */
 const codeRowScope = (index) => {
   const t = table('dictionary');
@@ -789,61 +758,6 @@ const codeRowScope = (index) => {
   if (get('Sponsor')) return { text: `Sponsor: ${get('Sponsor')}`, kind: 'sponsor' };
   return { text: 'Everywhere', kind: 'general' };
 };
-
-const HOW_KEY = 'quick-draw:codes-help-open';
-const remembered = (key, fallback) => {
-  try {
-    const value = localStorage.getItem(key);
-    return value === null ? fallback : value === 'true';
-  } catch {
-    return fallback;
-  }
-};
-const remember = (key, value) => {
-  try {
-    localStorage.setItem(key, String(value));
-  } catch {
-    // Storage may be blocked; the section just opens as before next time.
-  }
-};
-
-/** A short explanation of the Cost codes sheet, above its table. */
-const codesHelp = () =>
-  el(
-    'details',
-    { class: 'help', open: remembered(HOW_KEY, true), ontoggle: (e) => remember(HOW_KEY, e.target.open) },
-    el('summary', {}, 'How this sheet works'),
-    el(
-      'div',
-      { class: 'help-body' },
-      el('h3', {}, 'The columns'),
-      el(
-        'table',
-        { class: 'help-table' },
-        el('tbody', {}, Object.entries(COLUMN_HELP.dictionary).map(([column, text]) => el('tr', {}, el('td', {}, el('code', {}, column)), el('td', {}, text))))
-      ),
-      el('h3', {}, 'Why a code can have more than one row'),
-      el(
-        'p',
-        {},
-        'List each code once with DrawAccount and Sponsor blank. That row applies ',
-        el('strong', {}, 'everywhere'),
-        '. Add another row for the same code only where one draw account or sponsor puts it in a different category. For each expense, Quick Draw uses the row for its draw account if there is one, else the row for its sponsor, else the everywhere row. The ',
-        el('strong', {}, 'Applies to'),
-        ' column shows which is which.'
-      ),
-      el('h3', {}, 'A description for one award'),
-      el(
-        'p',
-        {},
-        'To describe a code differently for one award, add a row with the CostCode, the Award and the new Description, and leave BudgetCategory blank. The easy way: on the Report tab, open the award and choose ',
-        el('strong', {}, 'Describe these codes differently for this award'),
-        '. Quick Draw adds the rows here for you.'
-      ),
-      el('h3', {}, 'Leaving costs out'),
-      el('p', {}, `A BudgetCategory of ${EXCLUDE} leaves that code’s costs out of every total, such as costs that can’t be drawn down.`)
-    )
-  );
 
 const DICTIONARY_VIEWS = {
   dictionary: {
@@ -884,8 +798,16 @@ const renderDictionary = () => {
       },
       { label: 'Dictionary sheets', className: 'sub-tabs' }
     ),
-    el('p', { class: 'lead' }, DICTIONARY_VIEWS[view].intro),
-    view === 'dictionary' && !t.error ? codesHelp() : null,
+    el(
+      'div',
+      { class: 'lead-with-help' },
+      el('p', { class: 'lead' }, DICTIONARY_VIEWS[view].intro),
+      el(
+        'button',
+        { type: 'button', class: 'help-button', 'aria-label': 'How the data dictionary works', title: 'How the data dictionary works', onclick: () => openGuide('codes') },
+        '?'
+      )
+    ),
     t.error
       ? notice('error', `The ${DICTIONARY_VIEWS[view].label} sheet can’t be used`, [t.error])
       : [
@@ -1243,7 +1165,7 @@ const awardPanel = (account, award) => {
   const describing = state.ui.describing.has(award.key);
   const panel = el(
     'div',
-    { class: 'award-panel', role: 'tabpanel' },
+    { class: 'award-panel level-panel', role: 'tabpanel' },
     el(
       'p',
       { class: 'award-line' },
@@ -1311,6 +1233,15 @@ const awardPanel = (account, award) => {
   return panel;
 };
 
+/** One level of the report: a labeled row of folder tabs over the panel it opens. */
+const level = (depth, label, tabs, content) =>
+  el(
+    'div',
+    { class: `report-level depth-${depth}` },
+    el('div', { class: 'level-head' }, el('span', { class: 'level-label' }, label), tabs),
+    depth === 3 ? content : el('div', { class: 'level-panel' }, content)
+  );
+
 const renderReport = () => {
   const report = state.report;
   if (!report) {
@@ -1341,20 +1272,18 @@ const renderReport = () => {
     renderReport();
   };
 
-  const sponsorTabs =
-    sponsors.length > 1
-      ? tabStrip(
-          sponsors.map((s) => ({ key: s, label: sponsorLabel(s), ...progressBadge(report.accounts.filter((a) => a.sponsor === s)) })),
-          state.ui.sponsor,
-          (value) => choose('sponsor', value),
-          { label: 'Sponsors', className: 'sub-tabs level-1' }
-        )
-      : null;
+  // Always shown, even for one sponsor, so the three levels read as a hierarchy.
+  const sponsorTabs = tabStrip(
+    sponsors.map((s) => ({ key: s, label: sponsorLabel(s), ...progressBadge(report.accounts.filter((a) => a.sponsor === s)) })),
+    state.ui.sponsor,
+    (value) => choose('sponsor', value),
+    { label: 'Sponsors', className: 'folder-tabs' }
+  );
   const accountTabs = tabStrip(
     accounts.map((a) => ({ key: a.key, label: a.label, ...progressBadge([a]) })),
     account.key,
     (value) => choose('account', value),
-    { label: 'Draw accounts', className: 'sub-tabs level-2' }
+    { label: 'Draw accounts', className: 'folder-tabs' }
   );
   const awardTabs = tabStrip(
     account.awards.map((w) => {
@@ -1374,7 +1303,7 @@ const renderReport = () => {
     }),
     award.key,
     (value) => choose('award', value),
-    { label: 'Awards', className: 'sub-tabs level-3' }
+    { label: 'Awards', className: 'folder-tabs' }
   );
 
   const filename = el('input', { type: 'text', id: 'filename', value: state.ui.filename, spellcheck: false });
@@ -1387,10 +1316,13 @@ const renderReport = () => {
     el('h2', {}, 'Report'),
     el('p', { class: 'lead' }, 'Open each award, check its justification, and copy it into the payment system. Tabs count the awards left to copy.'),
     reportWarnings.length ? notice('warn', null, reportWarnings) : null,
-    sponsorTabs,
-    accountTabs,
-    awardTabs,
-    awardPanel(account, award),
+    // Sponsor › draw account › award, each a row of folder tabs over a panel holding the next level.
+    level(
+      1,
+      'Sponsor',
+      sponsorTabs,
+      level(2, 'Draw account', accountTabs, level(3, 'Award', awardTabs, awardPanel(account, award)))
+    ),
     el(
       'section',
       { class: 'download' },
@@ -1446,10 +1378,34 @@ const downloadWorkbook = async () => {
 
 // -------------------------------------------------------------- render
 
+// The Help tab gathers every guide, each with its own address (#help/dictionary and so on).
+const HELP_VIEWS = {
+  requirements: { label: 'Requirements', guide: 'about' },
+  dictionary: { label: 'Data dictionary', guide: 'codes' },
+  templates: { label: 'Templates', guide: 'templates' },
+  export: { label: 'Exporting', guide: 'export' },
+  glossary: { label: 'Glossary', guide: 'glossary' },
+};
+
 const renderHelp = () => {
-  const holder = el('div');
-  fill(main(), holder);
-  renderGuidePage(holder, 'about');
+  if (!HELP_VIEWS[state.ui.helpView]) state.ui.helpView = 'requirements';
+  const holder = el('div', { class: 'help-hub' });
+  fill(
+    main(),
+    el('h2', {}, 'Help'),
+    tabStrip(
+      Object.entries(HELP_VIEWS).map(([key, v]) => ({ key, label: v.label })),
+      state.ui.helpView,
+      (key) => {
+        state.ui.helpView = key;
+        showAddress();
+        renderHelp();
+      },
+      { label: 'Help topics', className: 'sub-tabs' }
+    ),
+    holder
+  );
+  renderGuidePage(holder, HELP_VIEWS[state.ui.helpView].guide);
 };
 
 const RENDERERS = {
@@ -1467,6 +1423,7 @@ const render = () => {
 };
 
 installTooltips();
+$('#glossary-link').addEventListener('click', () => openGuide('glossary'));
 
 window.addEventListener('beforeunload', (event) => {
   const unsaved = Object.values(state.files).some((f) => f?.dirty) || state.edits.size > 0 || state.ui.templateDrafts?.size > 0;
