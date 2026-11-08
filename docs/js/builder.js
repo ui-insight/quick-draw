@@ -11,7 +11,6 @@ import {
   singleBraceNote,
   tableLayout,
   templateLabel,
-  STANDARD_TEMPLATES,
 } from './core.js';
 import { scan } from './jinja.js';
 import { SNIPPET_TYPE, visualEditor } from './blocks.js';
@@ -122,8 +121,6 @@ const PALETTE = [
   },
 ];
 
-// The editor starts from templates shaped by the agencies' requirements.
-const EXAMPLES = STANDARD_TEMPLATES.map((t) => ({ name: t.name, label: t.label, text: t.text, source: t.source, maxLength: t.maxLength }));
 
 // --------------------------------------------------------------- help
 
@@ -242,61 +239,13 @@ export const renderTemplates = (container, app) => {
     rerender();
   };
 
-  // "+ New template" offers the standards, each shaped by an agency's requirements, or a blank one.
+  // A name not yet used on the sheet, numbering it if needed.
   const uniqueName = (name) => {
     const taken = new Set(rows.map((r) => (r.name || r.label).toUpperCase()));
     let candidate = name;
     for (let n = 2; taken.has(candidate.toUpperCase()); n++) candidate = `${name} ${n}`;
     return candidate;
   };
-  const openNewMenu = () => {
-    const tab = strip.querySelector('.tab-add');
-    const outside = (event) => {
-      if (!menu.contains(event.target) && !tab.contains(event.target)) close();
-    };
-    const close = () => {
-      menu.remove();
-      document.removeEventListener('pointerdown', outside, true);
-      window.removeEventListener('scroll', close);
-    };
-    const choose = (values) => {
-      close();
-      addTemplate(values);
-    };
-    const item = (title, detail, values) =>
-      el('button', { type: 'button', role: 'menuitem', onclick: () => choose(values) }, el('strong', {}, title), el('span', { class: 'muted small' }, detail));
-    const menu = el(
-      'div',
-      { class: 'new-menu', role: 'menu', 'aria-label': 'New template' },
-      el('p', { class: 'guide-label' }, 'Start from a standard'),
-      EXAMPLES.map((example) =>
-        item(example.label, example.source, { Name: uniqueName(example.name), Template: example.text, MaxLength: String(example.maxLength ?? '') })
-      ),
-      item('Blank', 'A one-line start to write your own.', { Name: uniqueName('New template'), Template: 'Payment for {{ costs }} under award {{ award }}.' })
-    );
-    menu.addEventListener('keydown', (event) => {
-      const items = [...menu.querySelectorAll('[role=menuitem]')];
-      const i = items.indexOf(document.activeElement);
-      if (event.key === 'Escape') {
-        close();
-        tab.focus();
-      } else if (event.key === 'ArrowDown') items[(i + 1) % items.length].focus();
-      else if (event.key === 'ArrowUp') items[(i - 1 + items.length) % items.length].focus();
-      else return;
-      event.preventDefault();
-    });
-    // Fixed to the screen, right under the tab, so opening it never moves the page.
-    document.body.append(menu);
-    const box = tab.getBoundingClientRect();
-    menu.style.left = `${Math.max(8, Math.min(box.left, window.innerWidth - menu.offsetWidth - 8))}px`;
-    menu.style.top = `${box.bottom + 4}px`;
-    menu.style.maxHeight = `${Math.max(160, window.innerHeight - box.bottom - 16)}px`;
-    document.addEventListener('pointerdown', outside, true);
-    // Only the page scrolling closes it, not the tab row scrolling sideways.
-    window.addEventListener('scroll', close, { once: true });
-    menu.querySelector('[role=menuitem]').focus({ preventScroll: true });
-  };
-
   const strip = tabStrip(
     [
       ...rows.map((r) => ({
@@ -308,7 +257,8 @@ export const renderTemplates = (container, app) => {
     ],
     ui.templateRow,
     (key) => {
-      if (key === 'new') openNewMenu();
+      // "+ New template" always adds a blank one; to start from an existing template, open it and use Add as new template.
+      if (key === 'new') addTemplate({ Name: uniqueName('New template'), Template: '', MaxLength: '1000' });
       else {
         ui.templateRow = key;
         rerender();

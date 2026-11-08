@@ -821,10 +821,8 @@ const readTemplates = (records, warn) => {
     const sponsor = cellText(record.Sponsor);
     const text = cellText(record.Template);
     const where = `Row ${record.row}`;
-    if (text === '') {
-      if (name || account || sponsor) warn(`${where} has no Template, so it is skipped.`, record.row);
-      continue;
-    }
+    // A template with no text yet (one just added) is simply not used.
+    if (text === '') continue;
     let maxLength = null;
     const rawMax = cellText(record.MaxLength);
     if (rawMax !== '') {

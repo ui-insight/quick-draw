@@ -115,7 +115,7 @@ One row per template.
 
 #### Standard templates
 
-The editor's **Start from a standard** buttons, and the sample dictionary, use templates shaped by each agency's stated requirements:
+The sample dictionary comes with templates shaped by each agency's stated requirements. To make your own, open one and use **Add as new template**; **+ New template** starts a blank one.
 
 | Template | Follows | What it says |
 |---|---|---|
