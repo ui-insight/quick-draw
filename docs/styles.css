@@ -1963,3 +1963,79 @@ a.button {
   flex-wrap: wrap;
   gap: 8px;
 }
+
+.draft-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.draft-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.draft-bar input {
+  flex: 1 1 200px;
+  min-width: 0;
+  font: inherit;
+  font-size: 0.92rem;
+  padding: 5px 9px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+}
+
+dialog.confirm-window {
+  width: min(460px, calc(100vw - 24px));
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px 22px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 12px 40px rgb(0 0 0 / 0.25);
+}
+
+dialog.confirm-window::backdrop {
+  background: rgb(15 20 25 / 0.45);
+}
+
+dialog.confirm-window h2 {
+  font-size: 1.1rem;
+  margin: 0 0 8px;
+}
+
+dialog.confirm-window p {
+  margin: 0 0 18px;
+  color: var(--muted);
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.button.danger-solid {
+  background: var(--error-border);
+  border-color: var(--error-border);
+  color: #fff;
+}
+
+.save-bar.unsaved {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  border-color: var(--warn-border);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.08);
+}

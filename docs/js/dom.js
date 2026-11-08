@@ -167,3 +167,36 @@ export const installTooltips = () => {
   window.addEventListener('scroll', hide, true);
   window.addEventListener('resize', hide);
 };
+
+/**
+ * Asks before doing something hard to undo, in a small window. Resolves true
+ * when confirmed, false when cancelled (Cancel, Escape or clicking outside).
+ */
+export const confirmWindow = ({ title, message, confirmLabel = 'Confirm', danger = false }) =>
+  new Promise((resolve) => {
+    const dialog = el('dialog', { class: 'confirm-window', 'aria-labelledby': 'confirm-title' });
+    let result = false;
+    const finish = (answer) => {
+      result = answer;
+      dialog.close();
+    };
+    const cancel = el('button', { type: 'button', class: 'button secondary', onclick: () => finish(false) }, 'Cancel');
+    dialog.append(
+      el('h2', { id: 'confirm-title' }, title),
+      el('p', {}, message),
+      el(
+        'div',
+        { class: 'confirm-actions' },
+        cancel,
+        el('button', { type: 'button', class: `button${danger ? ' danger-solid' : ''}`, onclick: () => finish(true) }, confirmLabel)
+      )
+    );
+    dialog.addEventListener('click', (event) => event.target === dialog && finish(false));
+    dialog.addEventListener('close', () => {
+      dialog.remove();
+      resolve(result);
+    });
+    document.body.append(dialog);
+    dialog.showModal();
+    cancel.focus();
+  });

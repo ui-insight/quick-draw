@@ -17,7 +17,7 @@ import { scan } from './jinja.js';
 import { SNIPPET_TYPE, visualEditor } from './blocks.js';
 import { openLoopDialog } from './loops.js';
 import { openGuide } from './guide.js';
-import { el, fill, insertAtCaret, notice, tabStrip } from './dom.js';
+import { confirmWindow, el, fill, insertAtCaret, notice, tabStrip } from './dom.js';
 
 // ------------------------------------------------------------- blocks
 
@@ -123,62 +123,11 @@ const PALETTE = [
 ];
 
 // The editor starts from templates shaped by the agencies' requirements.
-const EXAMPLES = STANDARD_TEMPLATES.map((t) => ({ label: t.label, text: t.text, source: t.source, maxLength: t.maxLength }));
+const EXAMPLES = STANDARD_TEMPLATES.map((t) => ({ name: t.name, label: t.label, text: t.text, source: t.source, maxLength: t.maxLength }));
 
 // --------------------------------------------------------------- help
 
 const code = (text) => el('code', {}, text);
-
-const helpSection = () =>
-  el(
-    'details',
-    { class: 'help', open: readHelpOpen(), ontoggle: (e) => writeHelpOpen(e.target.open) },
-    el('summary', {}, 'How templates work'),
-    el(
-      'div',
-      { class: 'help-body' },
-      el(
-        'p',
-        {},
-        'Write the justification in your own words. Where a value goes, such as the award number or the total, drag in its block from the left (or click the block to add it at the cursor). Quick Draw fills it in for each award; the preview below shows the result.'
-      ),
-      el(
-        'p',
-        {},
-        'To list each budget category, add ',
-        el('strong', {}, 'Each category'),
-        ' from Loops, then click the loop in your text to set it up.'
-      ),
-      el(
-        'p',
-        { class: 'muted small' },
-        el('strong', {}, 'Jinja'),
-        ' shows the same template as the text saved in your workbook. Templates are saved on its Templates sheet when you save the dictionary.'
-      ),
-      el(
-        'p',
-        {},
-        el('button', { type: 'button', class: 'button small secondary', onclick: () => openGuide('templates') }, 'Read the guide'),
-        ' What templates and loops are, why you’d want loops, and how to get started, with examples.'
-      )
-    )
-  );
-
-const HELP_KEY = 'quick-draw:help-open';
-const readHelpOpen = () => {
-  try {
-    return localStorage.getItem(HELP_KEY) === 'true';
-  } catch {
-    return false;
-  }
-};
-const writeHelpOpen = (open) => {
-  try {
-    localStorage.setItem(HELP_KEY, String(open));
-  } catch {
-    // Storage may be blocked; the help just opens again next time.
-  }
-};
 
 // ------------------------------------------------------------ editor
 
@@ -281,6 +230,7 @@ export const renderTemplates = (container, app) => {
   const { table, ui } = app;
   ui.templateView ??= 'builder';
   const rows = templateRows(table);
+  ui.templateDrafts ??= new Map(); // grid row -> edited template text not yet saved
   if (!rows.some((r) => r.index === ui.templateRow)) ui.templateRow = rows[0]?.index ?? null;
   const current = rows.find((r) => r.index === ui.templateRow);
 
@@ -292,11 +242,69 @@ export const renderTemplates = (container, app) => {
     rerender();
   };
 
+  // "+ New template" offers the standards, each shaped by an agency's requirements, or a blank one.
+  const uniqueName = (name) => {
+    const taken = new Set(rows.map((r) => (r.name || r.label).toUpperCase()));
+    let candidate = name;
+    for (let n = 2; taken.has(candidate.toUpperCase()); n++) candidate = `${name} ${n}`;
+    return candidate;
+  };
+  const openNewMenu = () => {
+    const tab = strip.querySelector('.tab-add');
+    const outside = (event) => {
+      if (!menu.contains(event.target) && !tab.contains(event.target)) close();
+    };
+    const close = () => {
+      menu.remove();
+      document.removeEventListener('pointerdown', outside, true);
+    };
+    const choose = (values) => {
+      close();
+      addTemplate(values);
+    };
+    const item = (title, detail, values) =>
+      el('button', { type: 'button', role: 'menuitem', onclick: () => choose(values) }, el('strong', {}, title), el('span', { class: 'muted small' }, detail));
+    const menu = el(
+      'div',
+      { class: 'new-menu', role: 'menu', 'aria-label': 'New template' },
+      el('p', { class: 'guide-label' }, 'Start from a standard'),
+      EXAMPLES.map((example) =>
+        item(example.label, example.source, { Name: uniqueName(example.name), Template: example.text, MaxLength: String(example.maxLength ?? '') })
+      ),
+      item('Blank', 'A one-line start to write your own.', { Name: uniqueName('New template'), Template: 'Payment for {{ costs }} under award {{ award }}.' })
+    );
+    menu.addEventListener('keydown', (event) => {
+      const items = [...menu.querySelectorAll('[role=menuitem]')];
+      const i = items.indexOf(document.activeElement);
+      if (event.key === 'Escape') {
+        close();
+        tab.focus();
+      } else if (event.key === 'ArrowDown') items[(i + 1) % items.length].focus();
+      else if (event.key === 'ArrowUp') items[(i - 1 + items.length) % items.length].focus();
+      else return;
+      event.preventDefault();
+    });
+    container.append(menu);
+    const frame = container.getBoundingClientRect();
+    const box = tab.getBoundingClientRect();
+    menu.style.left = `${Math.max(0, Math.min(box.left - frame.left, container.clientWidth - menu.offsetWidth))}px`;
+    menu.style.top = `${box.bottom - frame.top + 4}px`;
+    document.addEventListener('pointerdown', outside, true);
+    menu.querySelector('[role=menuitem]').focus();
+  };
+
   const strip = tabStrip(
-    [...rows.map((r) => ({ key: r.index, label: r.label })), { key: 'new', label: '+ New template', className: 'tab-add' }],
+    [
+      ...rows.map((r) => ({
+        key: r.index,
+        label: ui.templateDrafts.has(r.index) ? `${r.label} •` : r.label,
+        title: ui.templateDrafts.has(r.index) ? 'This template has unsaved edits.' : null,
+      })),
+      { key: 'new', label: '+ New template', className: 'tab-add' },
+    ],
     ui.templateRow,
     (key) => {
-      if (key === 'new') addTemplate({ Name: `Template ${rows.length + 1}`, Template: EXAMPLES[0].text, MaxLength: EXAMPLES[0].maxLength });
+      if (key === 'new') openNewMenu();
       else {
         ui.templateRow = key;
         rerender();
@@ -306,7 +314,7 @@ export const renderTemplates = (container, app) => {
   );
 
   const warnings = app.warnings.filter((w) => !current || !w.row || w.row === current.index + 1);
-  const parts = [helpSection(), warnings.length ? notice('warn', null, warnings.map((w) => w.text)) : null, strip];
+  const parts = [warnings.length ? notice('warn', null, warnings.map((w) => w.text)) : null, strip];
 
   if (!current) {
     parts.push(el('p', { class: 'empty' }, 'This file has no templates yet. Click ', el('strong', {}, '+ New template'), ' to start one.'));
@@ -336,20 +344,6 @@ export const renderTemplates = (container, app) => {
     app.onEdit();
     rerender();
   });
-  const fallbackSelect = el(
-    'select',
-    {
-      id: 'template-fallback',
-      onchange: (event) => {
-        app.setCell(current.index, 'Fallback', event.target.value);
-        app.onEdit();
-      },
-    },
-    el('option', { value: '', selected: !current.fallback }, 'Nothing (just warn)'),
-    rows
-      .filter((r) => r.index !== current.index)
-      .map((r) => el('option', { value: r.name || r.label, selected: Boolean(current.fallback) && [r.name, r.label].includes(current.fallback) }, r.label))
-  );
   const limitInput = el('input', { type: 'number', id: 'template-limit', min: 1, step: 1, value: current.maxLength, placeholder: 'None' });
   limitInput.addEventListener('input', () => {
     app.setCell(current.index, 'MaxLength', limitInput.value);
@@ -378,59 +372,99 @@ export const renderTemplates = (container, app) => {
     el('div', { class: 'field narrow' }, el('label', { for: 'template-limit' }, 'Character limit'), limitInput),
     el(
       'div',
-      { class: 'field' },
-      el(
-        'label',
-        { for: 'template-fallback', title: 'When an award’s justification would run over the character limit, Quick Draw uses this shorter template instead, and says so on the Report tab.' },
-        'If too long, use'
-      ),
-      fallbackSelect
-    ),
-    el(
-      'div',
       { class: 'settings-actions' },
       el(
         'button',
         {
           type: 'button',
-          class: 'button small secondary',
-          onclick: () =>
-            addTemplate({
-              Name: `${current.label} copy`,
-              DrawAccount: current.account,
-              Sponsor: current.sponsor,
-              Template: text,
-              MaxLength: limitInput.value,
-            }),
-        },
-        'Duplicate'
-      ),
-      el(
-        'button',
-        {
-          type: 'button',
           class: 'button small secondary danger',
-          onclick: () => {
-            if (!confirm(`Delete the "${current.label}" template?`)) return;
+          onclick: async () => {
+            const sure = await confirmWindow({
+              title: `Delete the “${current.label}” template?`,
+              message:
+                'It is removed from the dictionary in this page right away. The deletion doesn’t take effect in your file until you save the dictionary, so until then the saved file still has it.',
+              confirmLabel: 'Delete template',
+              danger: true,
+            });
+            if (!sure) return;
             app.deleteRow(current.index);
+            // Rows below move up one, and their drafts with them.
+            ui.templateDrafts = new Map(
+              [...ui.templateDrafts].filter(([row]) => row !== current.index).map(([row, draft]) => [row > current.index ? row - 1 : row, draft])
+            );
             ui.templateRow = null;
             app.onEdit();
             rerender();
           },
         },
-        'Delete'
+        'Delete template'
       )
     )
   );
 
   // The editor, in the chosen view.
-  let text = current.text;
+  // Edits make a draft. Save puts it into the template; Save as new makes another template from it.
+  let text = ui.templateDrafts.get(current.index) ?? current.text;
   const changed = (value) => {
     text = value;
-    app.setCell(current.index, 'Template', value);
-    app.onEdit();
+    if (value === current.text) ui.templateDrafts.delete(current.index);
+    else ui.templateDrafts.set(current.index, value);
+    updateDraftBar();
     updatePreview();
+    app.onDraft?.();
   };
+
+  const draftBar = el('div', { class: 'draft-bar', 'aria-live': 'polite' });
+  const markTab = () => {
+    const tabNode = strip.querySelector(`#${CSS.escape(strip.querySelector('[aria-selected=true]')?.id ?? '')}`);
+    const label = tabNode?.querySelector('.tab-label');
+    if (label) label.textContent = ui.templateDrafts.has(current.index) ? `${current.label} •` : current.label;
+  };
+  const saveTemplate = () => {
+    app.setCell(current.index, 'Template', text);
+    ui.templateDrafts.delete(current.index);
+    app.onEdit();
+    current.text = text;
+    updateDraftBar();
+  };
+  const saveAsNew = (name) => {
+    const values = { Name: uniqueName(name.trim() || `${current.label} (edited)`), Template: text, MaxLength: limitInput.value };
+    ui.templateDrafts.delete(current.index);
+    addTemplate(values);
+  };
+  const discard = () => {
+    ui.templateDrafts.delete(current.index);
+    rerender();
+  };
+  function updateDraftBar() {
+    markTab();
+    const edited = ui.templateDrafts.has(current.index);
+    const asNew = el('button', { type: 'button', class: 'button small secondary' }, 'Save as new…');
+    asNew.addEventListener('click', () => {
+      const name = el('input', { type: 'text', value: `${current.label} (edited)`, 'aria-label': 'Name for the new template', spellcheck: false });
+      const confirmName = el('button', { type: 'button', class: 'button small', onclick: () => saveAsNew(name.value) }, 'Save as new');
+      const cancel = el('button', { type: 'button', class: 'link-button small', onclick: () => updateDraftBar() }, 'Cancel');
+      name.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') saveAsNew(name.value);
+        if (event.key === 'Escape') updateDraftBar();
+      });
+      fill(draftBar, el('span', { class: 'small' }, 'Name the new template:'), name, confirmName, cancel);
+      name.select();
+    });
+    fill(
+      draftBar,
+      edited
+        ? el('span', { class: 'badge warn', title: 'These edits are only in the editor. Save puts them into this template; Save as new makes a new template and leaves this one as it was.' }, 'Unsaved edits')
+        : el('span', { class: 'muted small' }, 'Template saved'),
+      el(
+        'span',
+        { class: 'draft-actions' },
+        edited ? el('button', { type: 'button', class: 'button small', onclick: saveTemplate }, 'Save template') : null,
+        asNew,
+        edited ? el('button', { type: 'button', class: 'link-button small', onclick: discard }, 'Discard edits') : null
+      )
+    );
+  }
   let insert;
   let editorNode;
   const previewValues = () => {
@@ -464,28 +498,6 @@ export const renderTemplates = (container, app) => {
       rerender();
     },
     { label: 'Template view', className: 'view-tabs' }
-  );
-
-  const examples = el(
-    'div',
-    { class: 'examples' },
-    el('span', { class: 'muted small', title: 'Templates shaped by each agency’s stated requirements. Point at one to see which.' }, 'Start from a standard:'),
-    EXAMPLES.map((example) =>
-      el(
-        'button',
-        {
-          type: 'button',
-          class: 'button small secondary',
-          title: example.source,
-          onclick: () => {
-            changed(example.text);
-            if (!limitInput.value && example.maxLength) app.setCell(current.index, 'MaxLength', String(example.maxLength));
-            rerender();
-          },
-        },
-        example.label
-      )
-    )
   );
 
   // Palette.
@@ -603,10 +615,10 @@ export const renderTemplates = (container, app) => {
           },
           '?'
         )
-      ),
-      examples
+      )
     ),
     editorNode,
+    draftBar,
     status,
     el(
       'div',
@@ -619,4 +631,5 @@ export const renderTemplates = (container, app) => {
   parts.push(el('div', { class: 'template-panel', role: 'tabpanel' }, settings, el('div', { class: 'builder' }, palette, editorColumn)));
   fill(container, ...parts);
   updatePreview();
+  updateDraftBar();
 };

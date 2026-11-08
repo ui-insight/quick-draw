@@ -612,6 +612,8 @@ const updateSaveBar = (key) => {
   const file = state.files[key];
   if (!bar || !file) return;
   const canSaveOver = Boolean(file.handle);
+  // While there is something to save, the bar stays pinned in view as you scroll.
+  bar.classList.toggle('unsaved', file.dirty);
   fill(
     bar,
     el('span', { class: 'file-name' }, file.fileName),
@@ -621,26 +623,34 @@ const updateSaveBar = (key) => {
           {
             class: 'badge warn',
             title: canSaveOver
-              ? 'Your changes are only in this page. Press Save to write them to the file.'
-              : 'Your changes are only in this page. Download the edited file and use it in place of the old one to keep them.',
+              ? 'Your changes are only in this page until you save. Save writes them to the file you opened.'
+              : 'Your changes are only in this page until you save. This browser can only save a copy (to your Downloads); Chrome and Edge can save over the file.',
           },
           'Unsaved changes'
         )
-      : el('span', { class: 'muted small' }, 'No unsaved changes'),
+      : el('span', { class: 'muted small' }, 'All changes saved'),
     el(
       'span',
       { class: 'save-actions' },
-      canSaveOver ? el('button', { type: 'button', class: 'button small', disabled: !file.dirty, onclick: () => saveFile(key) }, 'Save') : null,
-      el(
-        'button',
-        { type: 'button', class: `button small ${canSaveOver ? 'secondary' : ''}`, onclick: () => saveFile(key, true) },
-        canSaveOver ? 'Download a copy' : 'Download edited file'
-      )
+      canSaveOver
+        ? [
+            el('button', { type: 'button', class: 'button small', disabled: !file.dirty, onclick: () => saveFile(key) }, 'Save'),
+            el('button', { type: 'button', class: 'button small secondary', onclick: () => saveFile(key, true) }, 'Save a copy'),
+          ]
+        : el(
+            'button',
+            { type: 'button', class: 'button small', onclick: () => saveFile(key, true), title: `Downloads ${file.fileName} with your changes.` },
+            `Save a copy (downloads ${file.fileName})`
+          )
     ),
     file.note
       ? el('p', { class: 'muted small save-note' }, file.note)
       : !canSaveOver && file.dirty
-        ? el('p', { class: 'muted small save-note' }, 'This browser can’t write over the file you opened. Download the edited file and use it in place of the old one.')
+        ? el(
+            'p',
+            { class: 'muted small save-note' },
+            'Changes are kept only once saved. Safari and Firefox don’t let web pages save over a file, so this saves a copy to your Downloads; use it in place of the old one. In Chrome or Edge, open the file with Choose file, and Save writes over it directly.'
+          )
         : null
   );
 };
@@ -1422,7 +1432,7 @@ const render = () => {
 installTooltips();
 
 window.addEventListener('beforeunload', (event) => {
-  const unsaved = Object.values(state.files).some((f) => f?.dirty) || state.edits.size > 0;
+  const unsaved = Object.values(state.files).some((f) => f?.dirty) || state.edits.size > 0 || state.ui.templateDrafts?.size > 0;
   if (unsaved) event.preventDefault();
 });
 
