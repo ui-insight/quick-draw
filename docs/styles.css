@@ -2120,3 +2120,48 @@ main {
     position: static;
   }
 }
+
+/* The "+ New template" menu, fixed right under its tab. */
+.new-menu {
+  position: fixed;
+  z-index: 30;
+  overflow-y: auto;
+  width: min(380px, calc(100vw - 16px));
+  padding: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.18);
+}
+
+.new-menu .guide-label {
+  padding: 4px 8px 2px;
+}
+
+.new-menu [role='menuitem'] {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  padding: 8px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.new-menu [role='menuitem']:hover,
+.new-menu [role='menuitem']:focus-visible {
+  background: var(--accent-soft);
+  outline: none;
+}
+
+/* With nothing edited, only "Save as new" shows, without the box. */
+.draft-bar.idle {
+  background: none;
+  border-color: transparent;
+  padding: 0;
+}

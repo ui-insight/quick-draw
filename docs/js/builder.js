@@ -257,6 +257,7 @@ export const renderTemplates = (container, app) => {
     const close = () => {
       menu.remove();
       document.removeEventListener('pointerdown', outside, true);
+      window.removeEventListener('scroll', close);
     };
     const choose = (values) => {
       close();
@@ -284,13 +285,16 @@ export const renderTemplates = (container, app) => {
       else return;
       event.preventDefault();
     });
-    container.append(menu);
-    const frame = container.getBoundingClientRect();
+    // Fixed to the screen, right under the tab, so opening it never moves the page.
+    document.body.append(menu);
     const box = tab.getBoundingClientRect();
-    menu.style.left = `${Math.max(0, Math.min(box.left - frame.left, container.clientWidth - menu.offsetWidth))}px`;
-    menu.style.top = `${box.bottom - frame.top + 4}px`;
+    menu.style.left = `${Math.max(8, Math.min(box.left, window.innerWidth - menu.offsetWidth - 8))}px`;
+    menu.style.top = `${box.bottom + 4}px`;
+    menu.style.maxHeight = `${Math.max(160, window.innerHeight - box.bottom - 16)}px`;
     document.addEventListener('pointerdown', outside, true);
-    menu.querySelector('[role=menuitem]').focus();
+    // Only the page scrolling closes it, not the tab row scrolling sideways.
+    window.addEventListener('scroll', close, { once: true });
+    menu.querySelector('[role=menuitem]').focus({ preventScroll: true });
   };
 
   const strip = tabStrip(
@@ -439,6 +443,7 @@ export const renderTemplates = (container, app) => {
   function updateDraftBar() {
     markTab();
     const edited = ui.templateDrafts.has(current.index);
+    draftBar.classList.toggle('idle', !edited);
     const asNew = el('button', { type: 'button', class: 'button small secondary' }, 'Save as new…');
     asNew.addEventListener('click', () => {
       const name = el('input', { type: 'text', value: `${current.label} (edited)`, 'aria-label': 'Name for the new template', spellcheck: false });
@@ -454,12 +459,19 @@ export const renderTemplates = (container, app) => {
     fill(
       draftBar,
       edited
-        ? el('span', { class: 'badge warn', title: 'These edits are only in the editor. Save puts them into this template; Save as new makes a new template and leaves this one as it was.' }, 'Unsaved edits')
-        : el('span', { class: 'muted small' }, 'Template saved'),
+        ? el(
+            'span',
+            {
+              class: 'badge warn',
+              title: 'These edits are only in the editor. Update template puts them into this template; Save as new makes a new template and leaves this one as it was. Either way, save the dictionary file to keep them.',
+            },
+            'Unsaved edits'
+          )
+        : null,
       el(
         'span',
         { class: 'draft-actions' },
-        edited ? el('button', { type: 'button', class: 'button small', onclick: saveTemplate }, 'Save template') : null,
+        edited ? el('button', { type: 'button', class: 'button small', onclick: saveTemplate }, 'Update template') : null,
         asNew,
         edited ? el('button', { type: 'button', class: 'link-button small', onclick: discard }, 'Discard edits') : null
       )
