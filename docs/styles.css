@@ -2425,6 +2425,10 @@ main.wrap {
   color: var(--text);
 }
 
+a.header-button {
+  text-decoration: none;
+}
+
 .header-button + .repo-link {
   margin-left: 0;
 }

@@ -29,7 +29,7 @@ import { buildWorkbook, readSheets, writeXlsx } from './workbook.js';
 import { renderDataTable } from './datatable.js';
 import { renderTemplates } from './builder.js';
 import { drawCostChart } from './chart.js';
-import { openGuide, renderGuidePage } from './guide.js';
+import { renderGuidePage } from './guide.js';
 import { $, downloadBytes, el, fill, installTooltips, notice, plural, tabStrip } from './dom.js';
 
 const XLSX_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
@@ -583,7 +583,7 @@ const fromAddress = () => {
   // Older links used #requirements for the Help tab.
   const tab = asked === 'requirements' ? 'help' : asked;
   state.ui.tab = STEPS.some((step) => step.key === tab) ? tab : 'files';
-  if (state.ui.tab === 'help') state.ui.helpView = ['dictionary', 'templates', 'loops', 'export', 'glossary'].includes(sub) ? sub : 'requirements';
+  if (state.ui.tab === 'help') state.ui.helpView = Object.keys(HELP_VIEWS).includes(sub) ? sub : 'requirements';
   if (state.ui.tab === 'dictionary') {
     // #dictionary/systems was the Payment systems sheet, now Draw accounts.
     const view = sub === 'systems' ? 'accounts' : sub ?? '';
@@ -608,9 +608,12 @@ const go = (tab) => {
 };
 
 window.addEventListener('popstate', () => {
+  const before = addressFor();
   fromAddress();
   showAddress(true);
   render();
+  // Another page (such as Help › Glossary, from a link) opens at its top.
+  if (addressFor() !== before) window.scrollTo({ top: 0 });
 });
 
 const nextButton = (tab) => {
@@ -1535,11 +1538,14 @@ const downloadWorkbook = async () => {
 
 // The Help tab gathers every guide, each with its own address (#help/dictionary and so on).
 const HELP_VIEWS = {
+  // Why, then the steps in the order you do them, then reference.
   requirements: { label: 'Requirements', guide: 'about' },
+  export: { label: 'Exporting', guide: 'export' },
   dictionary: { label: 'Data dictionary', guide: 'codes' },
   templates: { label: 'Templates', guide: 'templates' },
   loops: { label: 'Loops', guide: 'loops' },
-  export: { label: 'Exporting', guide: 'export' },
+  report: { label: 'Report', guide: 'report' },
+  hhs: { label: 'HHS wording', guide: 'hhs' },
   glossary: { label: 'Glossary', guide: 'glossary' },
 };
 
@@ -1579,7 +1585,6 @@ const render = () => {
 };
 
 installTooltips();
-$('#glossary-link').addEventListener('click', () => openGuide('glossary'));
 
 window.addEventListener('beforeunload', (event) => {
   const unsaved = Object.values(state.files).some((f) => f?.dirty) || state.edits.size > 0 || state.ui.templateDrafts?.size > 0;

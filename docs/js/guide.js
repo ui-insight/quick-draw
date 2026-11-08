@@ -245,6 +245,14 @@ const TEMPLATES_GUIDE = {
         el('li', {}, b('Change the words'), ' until they sound like you. Delete what you don’t need, and drag in the values you do.'),
         el('li', {}, b('Add a loop'), ' if you want a list: add ', chip('loop', 'Each category'), ' from Loops, then ', b('click it'), ' to write how one category reads and what goes between them. Help › Loops explains them in detail.'),
         el('li', {}, b('Check the preview'), ' below the editor. Pick different awards, especially long ones, and set the ', b('Character limit'), ' to your payment system’s.'),
+        el(
+          'li',
+          {},
+          b('Choose who uses it.'),
+          ' Tick ',
+          b('Default template'),
+          ' beside Builder and Jinja to use it for every award, or pick it in a Template column on the Data dictionary tab for one award, draw account or sponsor. The line under its name says who uses it.'
+        ),
         el('li', {}, b('Save the dictionary'), ' to keep the template. Templates live on its Templates sheet.')
       ),
       p('Here is a full template built that way: values, a loop with commas and "and", dates that appear only when there are some, and the goal.'),
@@ -286,9 +294,9 @@ const LOOPS_GUIDE = {
   sections: () => [
     section(
       'l-what',
-      'What this window does',
+      'The loop window',
       p(
-        'A loop writes the same words once for each item in a list. In this window you write the words for ',
+        'A loop writes the same words once for each item in a list. Click a green loop block in the template and a window opens. In it you write the words for ',
         b('one'),
         ' item, using that item’s blocks, and Quick Draw repeats them for every item the award has.'
       ),
@@ -529,8 +537,8 @@ const sourceBox = () =>
     )
   );
 
-const wordingButton = (label = 'Read HHS’s wording') =>
-  el('button', { type: 'button', class: 'button small secondary', onclick: () => openGuide('hhs') }, label);
+// HHS's own wording is its own page on the Help tab.
+const wordingButton = (label = 'Read HHS’s wording') => el('a', { class: 'button small secondary', href: '#help/hhs' }, label);
 
 const ABOUT_GUIDE = {
   kicker: 'Requirements',
@@ -628,7 +636,7 @@ const ABOUT_GUIDE = {
       'a-systems',
       'Payment systems',
       el('ul', { class: 'guide-links' }, PAYMENT_SYSTEMS.map((s) => el('li', {}, link(s.url, s.name), ': ', s.who))),
-      p('One agency can use more than one: within DoD, ONR takes payment requests through WAWF while other offices use PMS, and within USDA, NIFA uses ASAP. So the Draw accounts sheet of your data dictionary says which system each draw account uses, and the Report groups draw accounts by system. The Open button beside each justification goes there.')
+      p('One agency can use more than one: within DoD, ONR takes payment requests through WAWF while other offices use PMS, and within USDA, NIFA uses ASAP. So the Draw accounts sheet of your data dictionary gives each draw account its payment system and link, and the Report groups draw accounts by system. The Open button beside each justification uses that link.')
     ),
     section(
       'a-sources',
@@ -777,10 +785,11 @@ const CODES_GUIDE = {
     section('d-exclude', 'Leaving costs out', p(`A BudgetCategory of ${EXCLUDE} leaves that code’s costs out of every total, such as costs that can’t be drawn down.`)),
     section(
       'd-missing',
-      'Codes and awards that are missing',
+      'Rows added for you',
       p(
         'When the expenses have a cost code or award the dictionary doesn’t, Quick Draw adds a row for it, highlighted at the top of the table with what it already knows filled in. Fill in the highlighted cell: the BudgetCategory for a code, the Goal for an award. Point at a highlighted row to see why it’s there.'
-      )
+      ),
+      p('Draw accounts and sponsors in the expenses get rows too, on Draw accounts and Sponsors, so you can fill in each account’s payment system and pick templates. They aren’t highlighted, since leaving them blank is fine.')
     ),
     section('d-awards', 'Awards: the columns', columnTable(COLUMN_HELP.awards)),
     section(
@@ -832,7 +841,64 @@ const GLOSSARY_GUIDE = {
   ],
 };
 
-const GUIDES = { templates: TEMPLATES_GUIDE, loops: LOOPS_GUIDE, about: ABOUT_GUIDE, export: EXPORT_GUIDE, hhs: HHS_WORDING, codes: CODES_GUIDE, glossary: GLOSSARY_GUIDE };
+const REPORT_GUIDE = {
+  kicker: 'Guide',
+  title: 'Using the Report',
+  sections: () => [
+    section(
+      'r-tabs',
+      'Finding an award',
+      p(
+        'Three rows of tabs, in the order you work: ',
+        b('Payment system'),
+        ', then a ',
+        b('Draw account'),
+        ' in it, then an ',
+        b('Award'),
+        '. Each tab counts the awards left to copy, and an award’s tab shows ! when something needs checking, or ✓ once it is copied. Accounts with no payment system on the Draw accounts sheet are under No payment system, last.'
+      )
+    ),
+    section(
+      'r-award',
+      'Each award',
+      el(
+        'ul',
+        {},
+        el('li', {}, b('Goal'), ': what the award is for. Type it here and it is saved to the Awards sheet.'),
+        el('li', {}, b('Template'), ': which template writes this award. The first choice is its usual one, saying where it comes from, such as (default) or (for Sponsor B). Picking another saves it to the Awards sheet.'),
+        el('li', {}, b('Justification'), ': the draft, with its character count against the template’s limit. You can edit it here; an edit is kept until the draft itself changes.'),
+        el('li', {}, b('Costs'), ': the award’s budget categories, cost codes and amounts, and a chart of them, so you can check the totals against what you are drawing.')
+      )
+    ),
+    section(
+      'r-copy',
+      'Copy and Open',
+      p(
+        b('Copy'),
+        ' puts the justification on your clipboard to paste into the payment system. First it warns about anything to check: costs whose code isn’t in the dictionary, a missing goal, a template problem, or text over the character limit. ',
+        b('Open'),
+        ' opens the payment system, using the link on the account’s row of the Draw accounts sheet; without one, there is no button.'
+      )
+    ),
+    section(
+      'r-describe',
+      'Describing codes for one award',
+      p(
+        b('Describe these codes differently for this award'),
+        ' lets you word a cost code’s description for this award only, such as “travel to the annual project meeting” instead of “project travel”. It adds rows to the Cost codes sheet with the Award filled in.'
+      )
+    ),
+    section(
+      'r-download',
+      'Downloading the report',
+      p(
+        'Download makes a workbook with a Read me sheet, one sheet per draw account with each award’s categories, amounts and justification as it reads now, and an Unmapped codes sheet listing any codes the dictionary is missing, in the dictionary’s own format. It warns first if costs are being left out.'
+      )
+    ),
+  ],
+};
+
+const GUIDES = { report: REPORT_GUIDE, templates: TEMPLATES_GUIDE, loops: LOOPS_GUIDE, about: ABOUT_GUIDE, export: EXPORT_GUIDE, hhs: HHS_WORDING, codes: CODES_GUIDE, glossary: GLOSSARY_GUIDE };
 
 /** Renders a guide as a page inside `container`, for the tab that shows it. */
 export const renderGuidePage = (container, which) => {
@@ -850,47 +916,4 @@ export const renderGuidePage = (container, which) => {
     )
   );
   fill(container, el('div', { class: 'guide-page' }, el('h2', {}, guide.title), guide.lead?.(), guide.after?.(), sections.length > 1 ? contents : null, sections));
-};
-
-/** Opens a guide, 'templates', 'loops', 'about' or 'export', as one scrolling page. */
-export const openGuide = (which = 'templates') => {
-  const guide = GUIDES[which];
-  const id = `guide-title-${which}`;
-  const sections = guide.sections();
-  const dialog = el('dialog', { class: 'guide', 'aria-labelledby': id });
-  const body = el('div', { class: 'guide-body', tabIndex: -1 });
-  const close = () => dialog.close();
-  dialog.addEventListener('close', () => dialog.remove());
-
-  // A short list of the sections, linking down the page.
-  const contents = el(
-    'nav',
-    { class: 'guide-contents', 'aria-label': 'On this page' },
-    sections.map((node) =>
-      el(
-        'button',
-        {
-          type: 'button',
-          class: 'link-button',
-          onclick: () => body.querySelector(`#${node.id}`).scrollIntoView({ behavior: 'smooth', block: 'start' }),
-        },
-        node.querySelector('h3')?.textContent
-      )
-    )
-  );
-  fill(body, guide.lead?.(), guide.after?.(), sections.length > 1 ? contents : null, sections);
-
-  dialog.append(
-    el(
-      'div',
-      { class: 'guide-head' },
-      el('div', {}, el('p', { class: 'guide-kicker' }, guide.kicker), el('h2', { id }, guide.title)),
-      el('button', { type: 'button', class: 'icon-button guide-close', 'aria-label': 'Close the guide', title: 'Close (Esc)', onclick: close }, '×')
-    ),
-    body,
-    el('div', { class: 'guide-foot' }, el('button', { type: 'button', class: 'button', onclick: close }, 'Close'))
-  );
-  document.body.append(dialog);
-  dialog.showModal();
-  body.focus();
 };
