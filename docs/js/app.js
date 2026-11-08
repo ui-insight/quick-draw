@@ -517,6 +517,12 @@ const renderNav = () => {
       { label: 'Steps', className: 'step-tabs' }
     )
   );
+  // On a narrow screen the steps scroll sideways; keep the current one in view.
+  const list = $('#steps .tabs');
+  const current = list?.querySelector('[aria-selected=true]');
+  if (list && current && list.scrollWidth > list.clientWidth) {
+    list.scrollLeft = current.offsetLeft - (list.clientWidth - current.offsetWidth) / 2;
+  }
 };
 
 // Each tab has its own address, such as #requirements or #dictionary/awards,

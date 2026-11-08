@@ -2,7 +2,7 @@
 
 Build drawdown justifications in your browser. Upload your expenses, a data dictionary and justification templates as Excel or CSV, and download a workbook with costs rolled up by sponsor budget category. Nothing leaves your computer.
 
-**Use it:** https://ui-insight.github.io/quick-draw/. It is in active development, so expect changes; the **Load the sample files** button shows how it works with made-up data.
+**Use it:** https://ui-insight.github.io/quick-draw/ · **Source:** https://github.com/ui-insight/quick-draw. It is in active development, so expect changes; the **Load the sample files** button shows how it works with made-up data.
 
 Part of [AI4RA](https://ai4ra.uidaho.edu) at the University of Idaho.
 
