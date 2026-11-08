@@ -1937,3 +1937,29 @@ a.button {
 .guide-quote li + li {
   margin-top: 4px;
 }
+
+.source-box {
+  margin: 0 0 16px;
+  padding: 12px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.source-box p {
+  margin: 0 0 8px;
+}
+
+.source-box p:last-child {
+  margin: 8px 0 0;
+}
+
+.source-title {
+  font-weight: 700;
+}
+
+.source-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}

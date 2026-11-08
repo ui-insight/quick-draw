@@ -398,6 +398,9 @@ export const PAYMENT_SYSTEMS = [
   },
 ];
 
+// When the requirements on this page were last checked against the sources. Update after each review.
+export const REQUIREMENTS_REVIEWED = 'November 7, 2026';
+
 // Copies kept in the repo, served beside the page, in case an agency moves its file.
 const SAVED = {
   hhs: 'references/hhs-payment-justification-guidance-2026-10-07.pdf',
@@ -426,7 +429,25 @@ const HHS_WORDING = {
   kicker: 'HHS’s wording',
   title: 'Payment Justification Guidance for HHS Recipients',
   lead: () =>
-    p(el('span', { class: 'muted small' }, 'Quoted from version 1.0, published October 7, 2026. ', link(SOURCES.hhs, 'Open the full guidance'), savedCopy('hhs'), '.')),
+    el(
+      'div',
+      { class: 'source-box' },
+      el(
+        'p',
+        {},
+        'Quoted from version 1.0, published October 7, 2026, as of ',
+        REQUIREMENTS_REVIEWED,
+        '. HHS may have revised it since: ',
+        b('read the current version on hhs.gov'),
+        ' before relying on these quotes.'
+      ),
+      el(
+        'div',
+        { class: 'source-links' },
+        el('a', { class: 'button small', href: SOURCES.hhs, target: '_blank', rel: 'noopener' }, 'Open the official guidance ↗'),
+        el('a', { class: 'button small secondary', href: SAVED.hhs, target: '_blank', rel: 'noopener' }, 'Saved copy (October 7, 2026)')
+      )
+    ),
   sections: () => [
     section(
       'h-purpose',
@@ -486,6 +507,26 @@ const HHS_WORDING = {
   ],
 };
 
+/** Sends people to the agencies' own pages, and says when this page was last checked. */
+const sourceBox = () =>
+  el(
+    'div',
+    { class: 'source-box' },
+    el('p', { class: 'source-title' }, 'Read it at the source'),
+    el(
+      'div',
+      { class: 'source-links' },
+      el('a', { class: 'button small', href: SOURCES.hhs, target: '_blank', rel: 'noopener' }, 'HHS guidance ↗'),
+      el('a', { class: 'button small secondary', href: SOURCES.nih, target: '_blank', rel: 'noopener' }, 'NIH policy ↗'),
+      el('a', { class: 'button small secondary', href: SOURCES.pms, target: '_blank', rel: 'noopener' }, 'PMS ↗')
+    ),
+    el(
+      'p',
+      { class: 'muted small' },
+      `This page was last checked against its sources on ${REQUIREMENTS_REVIEWED}. Requirements change, and your agency or Notice of Award may add its own, so read the current version at the source before relying on this summary.`
+    )
+  );
+
 const wordingButton = (label = 'Read HHS’s wording') =>
   el('button', { type: 'button', class: 'button small secondary', onclick: () => openGuide('hhs') }, label);
 
@@ -504,6 +545,7 @@ const ABOUT_GUIDE = {
       ),
       el('p', { class: 'muted small' }, link(SOURCES.hhs, 'Payment Justification Guidance for HHS Recipients'), ', version 1.0, October 7, 2026')
     ),
+  after: () => sourceBox(),
   sections: () => [
     section(
       'a-rule',
@@ -604,7 +646,13 @@ const ABOUT_GUIDE = {
         link('mailto:PMSSupport@psc.hhs.gov', 'PMSSupport@psc.hhs.gov'),
         ', 1-877-614-5533. Questions about an award: the Grants Management Specialist on your Notice of Award.'
       ),
-      p(el('span', { class: 'muted small' }, 'Quick Draw is independent and not affiliated with any agency. Requirements change; check your agency’s current guidance.'))
+      p(
+        el(
+          'span',
+          { class: 'muted small' },
+          `Last checked against these sources on ${REQUIREMENTS_REVIEWED}. Quick Draw is independent and not affiliated with any agency; the agency’s own page is always the authority.`
+        )
+      )
     ),
   ],
 };
@@ -696,7 +744,7 @@ export const renderGuidePage = (container, which) => {
       )
     )
   );
-  fill(container, el('div', { class: 'guide-page' }, el('h2', {}, guide.title), guide.lead?.(), contents, sections));
+  fill(container, el('div', { class: 'guide-page' }, el('h2', {}, guide.title), guide.lead?.(), guide.after?.(), contents, sections));
 };
 
 /** Opens a guide, 'templates', 'loops', 'about' or 'export', as one scrolling page. */
@@ -725,7 +773,7 @@ export const openGuide = (which = 'templates') => {
       )
     )
   );
-  fill(body, guide.lead?.(), contents, sections);
+  fill(body, guide.lead?.(), guide.after?.(), contents, sections);
 
   dialog.append(
     el(
