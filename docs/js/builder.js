@@ -407,7 +407,7 @@ export const renderTemplates = (container, app) => {
   );
 
   // The editor, in the chosen view.
-  // Edits make a draft. Save puts it into the template; Save as new makes another template from it.
+  // Edits make a draft. Update puts it into the template; Add as new makes another template from it.
   let text = ui.templateDrafts.get(current.index) ?? current.text;
   const changed = (value) => {
     text = value;
@@ -444,10 +444,10 @@ export const renderTemplates = (container, app) => {
     markTab();
     const edited = ui.templateDrafts.has(current.index);
     draftBar.classList.toggle('idle', !edited);
-    const asNew = el('button', { type: 'button', class: 'button small secondary' }, 'Save as new…');
+    const asNew = el('button', { type: 'button', class: 'button small secondary' }, 'Add as new template…');
     asNew.addEventListener('click', () => {
       const name = el('input', { type: 'text', value: `${current.label} (edited)`, 'aria-label': 'Name for the new template', spellcheck: false });
-      const confirmName = el('button', { type: 'button', class: 'button small', onclick: () => saveAsNew(name.value) }, 'Save as new');
+      const confirmName = el('button', { type: 'button', class: 'button small', onclick: () => saveAsNew(name.value) }, 'Add template');
       const cancel = el('button', { type: 'button', class: 'link-button small', onclick: () => updateDraftBar() }, 'Cancel');
       name.addEventListener('keydown', (event) => {
         if (event.key === 'Enter') saveAsNew(name.value);
@@ -463,7 +463,7 @@ export const renderTemplates = (container, app) => {
             'span',
             {
               class: 'badge warn',
-              title: 'These edits are only in the editor. Update template puts them into this template; Save as new makes a new template and leaves this one as it was. Either way, save the dictionary file to keep them.',
+              title: 'These edits are only in the editor. Update template puts them into this template; Add as new template makes a new one and leaves this one as it was. Either way, save the dictionary file to keep them.',
             },
             'Unsaved edits'
           )
