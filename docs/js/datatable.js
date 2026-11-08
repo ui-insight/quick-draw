@@ -57,6 +57,12 @@ export const renderDataTable = (container, options) => {
   const { headerIndex, positions } = tableLayout(grid, columns);
   const header = grid[headerIndex] ?? [];
   const width = Math.max(header.length, ...grid.map((row) => row?.length ?? 0));
+  // Wide exports: show only the columns Quick Draw reads, unless asked for all.
+  // The others stay in the file and are saved with it.
+  const used = new Set(Object.values(positions));
+  const everyColumn = Array.from({ length: width }, (_, c) => c);
+  const extra = everyColumn.filter((c) => !used.has(c)).length;
+  const visible = view.showAll || used.size === 0 ? everyColumn : everyColumn.filter((c) => used.has(c));
 
   const allRows = [];
   for (let r = headerIndex + 1; r < grid.length; r++) allRows.push(r);
@@ -150,7 +156,7 @@ export const renderDataTable = (container, options) => {
       { class: isPinned ? 'needs-input' : note ? 'flagged' : null, title: note ?? null },
       el('th', { scope: 'row', class: 'row-number' }, String(r + 1)),
       appliesTo ? appliesCell(r) : null,
-      Array.from({ length: width }, (_, c) => {
+      visible.map((c) => {
         const cell = el('td', { class: isPinned && c === needsColumn ? 'needs-value' : null }, cellInput(r, c));
         if (note) cell.firstChild.title = note;
         return cell;
@@ -204,11 +210,15 @@ export const renderDataTable = (container, options) => {
   // Column widths: dragged ones are remembered; the rest fit their content.
   const saved = loadWidths(name);
   const columnName = (c) => cellText(header[c]) || `Column ${c + 1}`;
-  const widths = Array.from({ length: width }, (_, c) => saved[columnName(c)] ?? autoWidth([columnName(c), ...shown.map((r) => cellText(grid[r]?.[c]))]));
-  const cols = widths.map((w) => el('col', { style: `width: ${w}px` }));
+  const widths = {};
+  const cols = {};
+  for (const c of visible) {
+    widths[c] = saved[columnName(c)] ?? autoWidth([columnName(c), ...shown.map((r) => cellText(grid[r]?.[c]))]);
+    cols[c] = el('col', { style: `width: ${widths[c]}px` });
+  }
   const tableNode = el('table', { class: 'data resizable' });
   const setTableWidth = () =>
-    (tableNode.style.width = `${ROW_NUMBER_WIDTH + (appliesTo ? APPLIES_WIDTH : 0) + ACTIONS_WIDTH + widths.reduce((a, b) => a + b, 0)}px`);
+    (tableNode.style.width = `${ROW_NUMBER_WIDTH + (appliesTo ? APPLIES_WIDTH : 0) + ACTIONS_WIDTH + Object.values(widths).reduce((a, b) => a + b, 0)}px`);
   setTableWidth();
 
   const resize = (c, next, remember = true) => {
@@ -267,6 +277,23 @@ export const renderDataTable = (container, options) => {
       { class: 'table-tools' },
       search,
       el('span', { class: 'muted' }, rows.length ? `Rows ${first}–${last} of ${rows.length}` : needle ? 'No rows match' : 'No rows yet'),
+      extra > 0 && used.size > 0
+        ? el(
+            'button',
+            {
+              type: 'button',
+              class: 'link-button small',
+              title: view.showAll
+                ? 'Hide the columns Quick Draw doesn’t use. They stay in the file.'
+                : `The file has ${extra} more column${extra === 1 ? '' : 's'} that Quick Draw doesn’t use. They are kept and saved with the file.`,
+              onclick: () => {
+                view.showAll = !view.showAll;
+                rerender();
+              },
+            },
+            view.showAll ? 'Show only the columns Quick Draw uses' : `Show all ${width} columns`
+          )
+        : null,
       addRow
     ),
     el(
@@ -278,7 +305,7 @@ export const renderDataTable = (container, options) => {
           {},
           el('col', { style: `width: ${ROW_NUMBER_WIDTH}px` }),
           appliesTo ? el('col', { style: `width: ${APPLIES_WIDTH}px` }) : null,
-          cols,
+          visible.map((c) => cols[c]),
           el('col', { style: `width: ${ACTIONS_WIDTH}px` })
         ),
         el(
@@ -291,7 +318,7 @@ export const renderDataTable = (container, options) => {
             appliesTo
               ? el('th', { scope: 'col' }, el('span', { class: 'col-name', title: 'Which expenses this row is used for. Worked out from DrawAccount, Sponsor and Award; it isn’t saved in the file.' }, 'Applies to'))
               : null,
-            Array.from({ length: width }, (_, c) =>
+            visible.map((c) =>
               el('th', { scope: 'col', class: known.has(c) ? null : 'extra' }, el('span', { class: 'col-name', title: headingTip(c) }, columnName(c)), handle(c))
             ),
             el('th', { scope: 'col', class: 'row-actions' }, el('span', { class: 'visually-hidden' }, 'Actions'))

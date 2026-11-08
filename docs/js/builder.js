@@ -459,7 +459,7 @@ export const renderTemplates = (container, app) => {
       ui.templateView = key;
       rerender();
     },
-    { label: 'Template view', className: 'view-tabs' }
+    { label: 'Template view', className: 'view-tabs', scrolls: false }
   );
 
   // Palette.

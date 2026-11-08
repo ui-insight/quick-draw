@@ -12,7 +12,7 @@ Part of [AI4RA](https://ai4ra.uidaho.edu) at the University of Idaho.
 
 When you draw funds from a federal payment system, many sponsors ask for a short justification of what the money paid for. Writing one by hand for each award means pulling expenses, grouping them into the sponsor's budget categories, totaling them and typing a sentence that fits the payment system's character limit. Quick Draw does the grouping and the totals and drafts the sentence from your template. You review and edit each one before you use it.
 
-Since March 2025, the HHS Payment Management System (PMS) requires a justification of up to 1,000 characters with every payment request, and in October 2026 HHS published [Payment Justification Guidance for HHS Recipients](https://www.hhs.gov/sites/default/files/asfr-payment-justification-guidance-hhs-recipients.pdf), which sets what a justification must say. Quick Draw focuses on that requirement because it covers NIH. Other agencies, payment systems and sponsors ask for justifications too, with different character or word limits and different expectations for detail; a template for each, with its own character limit, handles that. The page's **Requirements** tab explains it and links to the sources; it was last checked against them on November 7, 2026. Requirements change, so read the agency's current version before relying on it.
+Since March 2025, the HHS Payment Management System (PMS) requires a justification of up to 1,000 characters with every payment request, and in October 2026 HHS published [Payment Justification Guidance for HHS Recipients](https://www.hhs.gov/sites/default/files/asfr-payment-justification-guidance-hhs-recipients.pdf), which sets what a justification must say. Quick Draw focuses on that requirement because it covers NIH. Other agencies, payment systems and sponsors ask for justifications too, with different character or word limits and different expectations for detail; a template for each, with its own character limit, handles that. The page's **Help** tab explains it and links to the sources; it was last checked against them on November 7, 2026. Requirements change, so read the agency's current version before relying on it.
 
 It works with any financial system. Export your expenses with the columns below, and Quick Draw takes it from there.
 
@@ -25,9 +25,9 @@ The page walks you through its steps, one tab at a time:
 3. **Data dictionary.** See and edit each code's budget category, and each award's goal. A cost code in the expenses that the dictionary lacks is added for you, highlighted at the top of the table, with whatever Quick Draw already knows about it filled in. Give it a category, or type `Exclude` to leave its costs out on purpose.
 4. **Templates.** Write the justification wording in the template builder, with a live preview for a real award.
 5. **Report.** Tabs for each sponsor, each of its draw accounts, and each award, counting the awards left to copy. For each award, pick its template if it needs a different one, read its justification, its costs and a bar chart of them, and **Copy** it into the payment system. Copy first warns about anything to fix: costs whose code is not in the dictionary, a missing goal, or text over the character limit. You can fill in an award's goal or its own code descriptions right there; they are saved to the dictionary. **Open PMS** (or whichever system the award's account uses) beside Copy opens the payment system to paste into. Download a workbook with one sheet per draw account.
-6. **Requirements.** What HHS requires, what other agencies ask for, and how Quick Draw meets it, with links to the sources and payment systems.
+6. **Help.** What HHS requires, what other agencies ask for, and how Quick Draw meets it, with links to the sources and payment systems.
 
-Each tab has its own address, so you can link straight to one, for example [#requirements](https://ui-insight.github.io/quick-draw/#requirements). The others are `#files`, `#expenses`, `#dictionary` (with `#dictionary/awards` and `#dictionary/systems`), `#templates` and `#report`.
+Each tab has its own address, so you can link straight to one, for example [#help](https://ui-insight.github.io/quick-draw/#help). The others are `#files`, `#expenses`, `#dictionary` (with `#dictionary/awards` and `#dictionary/systems`), `#templates` and `#report`. (`#requirements` still works for Help.)
 
 You can edit both files in the page and save the changes. In Chrome and Edge, **Save** writes over the file you opened. In other browsers, download the edited file and use it in place of the old one.
 
@@ -182,7 +182,7 @@ npm run serve
 
 Then open http://localhost:4317. This runs [`scripts/serve.py`](scripts/serve.py), which tells the browser not to cache the page's files, so a reload always runs the latest code. Any static server works too, such as `python3 -m http.server 4317 -d docs`, but after changing the code you may need a hard reload (Cmd+Shift+R) to avoid a mix of old and new files. Opening `index.html` straight from disk does not work, because browsers block its scripts there.
 
-Copies of the HHS guidance and the DOL memo the Requirements tab quotes are kept in [`docs/references/`](docs/references/), in case an agency moves its file.
+Copies of the HHS guidance and the DOL memo the Help tab quotes are kept in [`docs/references/`](docs/references/), in case an agency moves its file.
 
 Everything is plain HTML, CSS and JavaScript with no build step. Two libraries are kept in `docs/vendor/` so the page loads nothing from other sites: [ExcelJS](https://github.com/exceljs/exceljs) for reading and writing workbooks, and the bar-chart build of [Plotly](https://github.com/plotly/plotly.js), which loads only when a chart is first shown. Both are MIT licensed.
 

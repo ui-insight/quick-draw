@@ -60,7 +60,7 @@ const STEPS = [
   { key: 'dictionary', label: 'Data dictionary' },
   { key: 'templates', label: 'Templates' },
   { key: 'report', label: 'Report' },
-  { key: 'requirements', label: 'Requirements' },
+  { key: 'help', label: 'Help' },
 ];
 
 const state = {
@@ -474,7 +474,7 @@ const dictionaryTip = (codes, goals, codeWarnings, awardWarnings) =>
 const countFor = (area) => state.warnings.filter((w) => w.area === area).length;
 
 const badgeFor = (key) => {
-  if (key === 'requirements') return {};
+  if (key === 'help') return {};
   const issue = (n, title) => (n ? { badge: String(n), badgeClass: 'warn', title } : {});
   const broken = (message) => ({ badge: '!', badgeClass: 'error', title: tip(message, 'Choose another file on the Files tab.') });
   if (key === 'files') {
@@ -517,12 +517,6 @@ const renderNav = () => {
       { label: 'Steps', className: 'step-tabs' }
     )
   );
-  // On a narrow screen the steps scroll sideways; keep the current one in view.
-  const list = $('#steps .tabs');
-  const current = list?.querySelector('[aria-selected=true]');
-  if (list && current && list.scrollWidth > list.clientWidth) {
-    list.scrollLeft = current.offsetLeft - (list.clientWidth - current.offsetWidth) / 2;
-  }
 };
 
 // Each tab has its own address, such as #requirements or #dictionary/awards,
@@ -537,7 +531,9 @@ const addressFor = () => {
 
 /** Reads the tab (and dictionary sheet) from the address. Unknown addresses open Files. */
 const fromAddress = () => {
-  const [tab, sub] = decodeURIComponent(location.hash.slice(1)).toLowerCase().split('/');
+  const [asked, sub] = decodeURIComponent(location.hash.slice(1)).toLowerCase().split('/');
+  // Older links used #requirements for the Help tab.
+  const tab = asked === 'requirements' ? 'help' : asked;
   state.ui.tab = STEPS.some((step) => step.key === tab) ? tab : 'files';
   if (state.ui.tab === 'dictionary') {
     state.ui.dictionaryView = Object.keys(DICTIONARY_HASH).find((view) => DICTIONARY_HASH[view] === (sub ?? '')) ?? 'dictionary';
@@ -633,7 +629,7 @@ const renderFiles = () => {
       'p',
       { class: 'lead' },
       'HHS now requires a short justification with every payment request in PMS. Quick Draw drafts them from your expenses. ',
-      el('button', { type: 'button', class: 'link-button', onclick: () => go('requirements') }, 'What the requirement says'),
+      el('button', { type: 'button', class: 'link-button', onclick: () => go('help') }, 'What the requirement says'),
       '.'
     ),
     el('p', { class: 'muted' }, 'Choose each file, or drag it onto its box. Your files are read in this browser and never uploaded.'),
@@ -1450,14 +1446,14 @@ const downloadWorkbook = async () => {
 
 // -------------------------------------------------------------- render
 
-const renderRequirements = () => {
+const renderHelp = () => {
   const holder = el('div');
   fill(main(), holder);
   renderGuidePage(holder, 'about');
 };
 
 const RENDERERS = {
-  requirements: renderRequirements,
+  help: renderHelp,
   files: renderFiles,
   expenses: renderExpenses,
   dictionary: renderDictionary,

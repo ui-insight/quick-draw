@@ -28,7 +28,7 @@ let tabsMade = 0;
  * An accessible tab strip. `items` are { key, label, badge? }. Calls
  * onSelect(key) when one is chosen. Arrow keys, Home and End move between tabs.
  */
-export const tabStrip = (items, selected, onSelect, { label, className = '' } = {}) => {
+export const tabStrip = (items, selected, onSelect, { label, className = '', scrolls = true } = {}) => {
   const id = `tabs-${++tabsMade}`;
   const list = el('div', { class: `tabs ${className}`, role: 'tablist', 'aria-label': label });
   const buttons = items.map((item) =>
@@ -63,7 +63,47 @@ export const tabStrip = (items, selected, onSelect, { label, className = '' } = 
     buttons[next].focus();
     onSelect(items[next].key);
   });
-  return list;
+  return scrolls ? scrollable(list) : list;
+};
+
+/**
+ * Wraps a row of tabs so a long one is easy to move along: ‹ › buttons at the
+ * edges when it overflows, the mouse wheel scrolls it sideways, and the
+ * selected tab is brought into view.
+ */
+const scrollable = (list) => {
+  const step = () => Math.max(120, list.clientWidth * 0.7);
+  const back = el('button', { type: 'button', class: 'tab-scroll back', 'aria-label': 'Scroll tabs left', tabIndex: -1 }, '‹');
+  const ahead = el('button', { type: 'button', class: 'tab-scroll ahead', 'aria-label': 'Scroll tabs right', tabIndex: -1 }, '›');
+  const frame = el('div', { class: `tabs-frame ${list.className.replace(/\btabs\b/, '').trim()}` }, back, list, ahead);
+  const update = () => {
+    const overflowing = list.scrollWidth > list.clientWidth + 1;
+    frame.classList.toggle('overflowing', overflowing);
+    back.hidden = !overflowing || list.scrollLeft <= 1;
+    ahead.hidden = !overflowing || list.scrollLeft + list.clientWidth >= list.scrollWidth - 1;
+  };
+  back.addEventListener('click', () => list.scrollBy({ left: -step(), behavior: 'smooth' }));
+  ahead.addEventListener('click', () => list.scrollBy({ left: step(), behavior: 'smooth' }));
+  list.addEventListener('scroll', update, { passive: true });
+  list.addEventListener(
+    'wheel',
+    (event) => {
+      if (list.scrollWidth <= list.clientWidth || Math.abs(event.deltaX) >= Math.abs(event.deltaY)) return;
+      list.scrollLeft += event.deltaY;
+      event.preventDefault();
+    },
+    { passive: false }
+  );
+  // Once on the page: bring the selected tab into view and set the buttons.
+  requestAnimationFrame(() => {
+    const selected = list.querySelector('[aria-selected=true]');
+    if (selected && (selected.offsetLeft < list.scrollLeft || selected.offsetLeft + selected.offsetWidth > list.scrollLeft + list.clientWidth)) {
+      list.scrollLeft = selected.offsetLeft - (list.clientWidth - selected.offsetWidth) / 2;
+    }
+    update();
+  });
+  new ResizeObserver(update).observe(list);
+  return frame;
 };
 
 const NOTICE_TIPS = {

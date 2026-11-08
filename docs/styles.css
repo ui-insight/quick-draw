@@ -2128,3 +2128,66 @@ main {
   border-color: transparent;
   padding: 0;
 }
+
+/* Long rows of tabs: arrows at the edges when they overflow. */
+.tabs-frame {
+  position: relative;
+  min-width: 0;
+}
+
+.tabs-frame > .tabs {
+  scrollbar-width: none;
+}
+
+.tabs-frame > .tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.tab-scroll {
+  position: absolute;
+  top: 0;
+  bottom: 1px;
+  z-index: 2;
+  width: 36px;
+  border: none;
+  font: inherit;
+  font-size: 1.4rem;
+  line-height: 1;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.tab-scroll.back {
+  left: 0;
+  text-align: left;
+  padding-left: 4px;
+  background: linear-gradient(to right, var(--bg) 55%, transparent);
+}
+
+.tab-scroll.ahead {
+  right: 0;
+  text-align: right;
+  padding-right: 4px;
+  background: linear-gradient(to left, var(--bg) 55%, transparent);
+}
+
+.tab-scroll[hidden] {
+  display: none;
+}
+
+/* The frame carries the row's spacing; the row inside doesn't repeat it. */
+.tabs-frame > .tabs {
+  margin: 0 !important;
+}
+
+/* Room between a guide page's title and what follows. */
+.guide-page > h2 {
+  margin-bottom: 1rem;
+}
+
+/* Space between the header and each tab's title. (main.wrap, so the
+   .wrap side padding doesn't wipe it out.) */
+main.wrap {
+  padding-top: 1.75rem;
+  padding-bottom: 0.5rem;
+}
