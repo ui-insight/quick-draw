@@ -19,6 +19,10 @@ test('values, filters and concatenation', () => {
   assert.equal(render('{{ categories | map("name") | join(" and ") }}', values), 'Travel and Supplies');
   assert.equal(render('{{ categories | length }}', values), '2');
   assert.equal(render('{{ award | replace("-", "/") }}', values), 'AWD/1');
+  // select drops blanks and unique drops repeats, as in Jinja.
+  assert.equal(render('{{ list | select | unique | join(", ") }}', { list: ['a', '', 'b', 'a'] }), 'a, b');
+  assert.equal(render('{{ c | map("description") | select | join(", ") }}', { c: values.categories[1].codes }), 'paper');
+  assert.equal(render('{% if c | map("description") | select %}has{% else %}none{% endif %}', { c: [{ description: '' }] }), 'none');
 });
 
 test('loops with loop variables and nested loops', () => {

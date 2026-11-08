@@ -36,7 +36,7 @@ test('an else inside a nested block belongs to that block', () => {
 
 test('writeLoop is the inverse of readLoop', () => {
   for (const loop of [
-    ITEMIZED,
+    writeLoop({ target: 'c', iter: 'categories', item: '{{ c.name }}', between: ', ', beforeLast: 'and ' }),
     '{% for code in codes %}{{ code.code }}{% endfor %}',
     '{% for c in categories %}{{ c.name }}{% if not loop.last %}; {% endif %}{% else %}nothing{% endfor %}',
   ]) {
@@ -48,6 +48,9 @@ test('written loops render as described', () => {
   const values = { categories: [{ name: 'A' }, { name: 'B' }, { name: 'C' }] };
   const loop = writeLoop({ target: 'c', iter: 'categories', item: '{{ c.name }}', between: ', ', beforeLast: 'and ' });
   assert.equal(render(loop, values), 'A, B, and C');
+  assert.equal(render(loop, { categories: [{ name: 'A' }, { name: 'B' }] }), 'A and B');
+  assert.equal(render(loop, { categories: [{ name: 'A' }] }), 'A');
+  assert.equal(render(writeLoop({ target: 'c', iter: 'categories', item: '{{ c.name }}', between: '; ', beforeLast: 'and ' }), values), 'A; B; and C');
   assert.equal(render(writeLoop({ target: 'c', iter: 'categories', item: 'x', empty: 'none' }), { categories: [] }), 'none');
 });
 
@@ -59,4 +62,11 @@ test('not a loop', () => {
 test('lists depend on the loops already open', () => {
   assert.deepEqual(loopLists().map((l) => l.iter), ['categories', 'codes']);
   assert.deepEqual(loopLists(['c']).map((l) => l.iter), ['c.codes', 'categories', 'codes']);
+});
+
+test('the older "before the last" form still opens with its settings', () => {
+  assert.deepEqual(
+    { between: readLoop(ITEMIZED).between, beforeLast: readLoop(ITEMIZED).beforeLast, item: readLoop(ITEMIZED).item },
+    { between: ', ', beforeLast: 'and ', item: '{{ c.name }} ${{ c.amount }}' }
+  );
 });

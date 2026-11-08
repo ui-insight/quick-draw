@@ -3,6 +3,7 @@
 // code runs in the browser and under `node --test`.
 
 import { TemplateError, compile } from './jinja.js';
+import { writeLoop } from './loopsyntax.js';
 
 export const GOAL_MARKER = "[describe the award's goal]";
 
@@ -33,8 +34,15 @@ export const COLUMNS = {
     { name: 'Award', required: true },
     { name: 'Sponsor' },
     { name: 'DrawAccount' },
+    { name: 'Program' },
     { name: 'Goal' },
     { name: 'Template' },
+  ],
+  systems: [
+    { name: 'Name', required: true },
+    { name: 'URL', required: true },
+    { name: 'DrawAccount' },
+    { name: 'Sponsor' },
   ],
   templates: [
     { name: 'Name' },
@@ -42,6 +50,7 @@ export const COLUMNS = {
     { name: 'Sponsor' },
     { name: 'Template', required: true },
     { name: 'MaxLength' },
+    { name: 'Fallback' },
   ],
 };
 
@@ -153,7 +162,7 @@ export const readTable = (grid, columns, label) => {
 };
 
 /** Default sheet names for the parts of the data dictionary workbook. */
-export const DICTIONARY_SHEETS = { dictionary: 'Cost codes', awards: 'Awards', templates: 'Templates' };
+export const DICTIONARY_SHEETS = { dictionary: 'Cost codes', awards: 'Awards', templates: 'Templates', systems: 'Payment systems' };
 
 /**
  * Which sheet of a data dictionary workbook holds what, by its columns and
@@ -161,7 +170,7 @@ export const DICTIONARY_SHEETS = { dictionary: 'Cost codes', awards: 'Awards', t
  * index or -1. Other sheets are left alone.
  */
 export const classifySheets = (sheets) => {
-  const found = { dictionary: -1, awards: -1, templates: -1 };
+  const found = { dictionary: -1, awards: -1, templates: -1, systems: -1 };
   const headers = sheets.map(({ grid }) => {
     const row = grid.find((r) => r && !isBlankRow(r)) ?? [];
     return new Set(row.map(headerKey));
@@ -175,9 +184,11 @@ export const classifySheets = (sheets) => {
   claim('dictionary', (h) => h.has('costcode') && h.has('budgetcategory'));
   claim('awards', (h) => h.has('award') && !h.has('costcode') && !h.has('budgetcategory'));
   claim('templates', (h) => h.has('template') && !h.has('award'));
+  claim('systems', (h) => h.has('url') && h.has('name') && !h.has('template'));
   claim('templates', (h, name) => name.includes('template'));
   claim('awards', (h, name) => name.includes('award'));
   claim('dictionary', (h, name) => name.includes('code') || name.includes('dictionary'));
+  claim('systems', (h, name) => name.includes('payment') || name.includes('system'));
   return found;
 };
 
@@ -321,6 +332,11 @@ export const FIELDS = {
     example: 'employee benefits; project travel',
     help: 'The dictionary descriptions of the codes behind the costs, joined by semicolons.',
   },
+  program: {
+    label: 'Program name',
+    example: 'Homeless Veterans’ Reintegration Program',
+    help: 'The award’s program, from the Program column of the Awards sheet. Some agencies, such as DOL, ask for it. Blank if none.',
+  },
   goal: {
     label: "Award's goal",
     example: 'mapping groundwater recharge in the upper basin',
@@ -414,6 +430,7 @@ export const templateValues = (award, account, sponsor = '') => {
     award: award.award,
     account,
     sponsor,
+    program: award.program ?? '',
     start: formatDay(award.start),
     end: formatDay(award.end),
     total: formatAmount(award.totalCents),
@@ -444,6 +461,54 @@ export const exampleValues = () =>
     'Sponsor A'
   );
 
+// ---------------------------------------------------- standard templates
+
+/** A list in a sentence: "A and B", or "A, B, and C". */
+const listOf = (item, target = 'c', iter = 'categories') => writeLoop({ target, iter, item, between: ', ', beforeLast: 'and ' });
+
+/** A category with the descriptions of its codes in parentheses, skipping blank and repeated ones. */
+const CATEGORY_WITH_PURPOSE =
+  '{{ c.name }}{% if c.codes | map("description") | select %} ({{ c.codes | map("description") | select | unique | join(", ") }}){% endif %}';
+
+const DATES = (lead) => `{% if start %}${lead}{{ start }} through {{ end }}{% endif %}`;
+
+/**
+ * Templates shaped by the agencies' stated requirements, not by what the
+ * engine can do. The sample dictionary and the editor's "Start from" buttons
+ * both use these.
+ */
+export const STANDARD_TEMPLATES = [
+  {
+    name: 'HHS and NIH',
+    label: 'HHS / NIH',
+    source: 'HHS Payment Justification Guidance (2026): the cost or activity, how it supports the award, and when it was incurred, in plain language.',
+    text: `Payment for ${listOf(CATEGORY_WITH_PURPOSE)}${DATES(' incurred ')} to support {{ goal }} under award {{ award }}.`,
+    maxLength: 1000,
+    fallback: 'HHS and NIH, short',
+  },
+  {
+    name: 'HHS and NIH, short',
+    label: 'HHS / NIH short',
+    source: 'The same requirements with categories only, used when the full version is over the limit.',
+    text: `Payment for ${listOf('{{ c.name }}')}${DATES(' incurred ')} to support {{ goal }} under award {{ award }}.`,
+    maxLength: 1000,
+  },
+  {
+    name: 'DOL VETS',
+    label: 'DOL VETS',
+    source: 'DOL VETS Grant Officer’s Memorandum 02-26 (2026): the program, the date range, and each budget category with its amount, adding up to the total.',
+    text: `These funds are for expenditures under the {{ program | default("award " ~ award) }}${DATES(', for the period ').replace(' through ', ' to ')}, for ${listOf('{{ c.name | lower }} (${{ c.amount }})')} as outlined in the grant award.`,
+    maxLength: 1000,
+  },
+  {
+    name: 'NASA',
+    label: 'NASA',
+    source: 'NASA Grant Information Circular 25-01 (2025): how much is requested, the approved budget categories, and why.',
+    text: `Payment of \${{ total }} is requested for ${listOf('{{ c.name }} (${{ c.amount }})')} in accordance with the pre-approved budget categories of award {{ award }}, to support {{ goal }}.`,
+    maxLength: 1000,
+  },
+];
+
 // ------------------------------------------------------------ read me
 
 export const README_SHEET = 'Read me';
@@ -468,10 +533,11 @@ export const readMeRows = () => {
   row('Where it is used', 'Open Quick Draw in a browser, choose your expenses file and this workbook. Nothing is uploaded; the files are read on your computer.');
   gap();
 
-  heading('The three sheets and what they are for');
+  heading('The sheets and what they are for');
   row('Cost codes', 'Maps each of your institution’s cost codes to a sponsor budget category, with a plain-language description. This is how expenses are grouped and totaled.');
   row('Awards', 'One row per award: its sponsor and draw account, a short goal saying what the award is for, and optionally which template it uses.');
   row('Templates', 'The wording of the justification, with blanks that Quick Draw fills in for each award. Keep as many versions as you like.');
+  row('Payment systems', 'Where each award’s payment requests go, such as PMS, with a link Quick Draw shows next to each justification’s Copy button.');
   row('Read me', 'This sheet. Quick Draw skips it.');
   row('Sheet names', 'Quick Draw finds each sheet by its column names, so you can rename or reorder the sheets. Column names match without regard to case or spaces. Extra columns are ignored.');
   gap();
@@ -492,6 +558,7 @@ export const readMeRows = () => {
   row('Award', 'Required. The award identifier, as it appears in the expenses file.');
   row('Sponsor', 'Optional. The award’s sponsor. Used when the expenses file doesn’t say; if both say, the expenses win.');
   row('DrawAccount', 'Optional. The payment-system account the award draws from. Used when the expenses file doesn’t say; if both say, the expenses win.');
+  row('Program', 'Optional. The award’s program name, for agencies that ask for it, such as DOL. Templates write it with {{ program }}.');
   row('Goal', 'A few words on what the award is for, such as “mapping groundwater recharge in the upper basin”. Templates write it with {{ goal }}. Without one, the justification says [describe the award’s goal] until you fill it in.');
   row('Template', 'Optional. The Name of the template this award uses, when it should read differently from the rest of its account. Leave blank to use the account’s usual template.');
   row('Missing awards', 'Awards in the expenses that are not on this sheet are added for you, with their sponsor and draw account filled in, so you only write the goal.');
@@ -503,7 +570,16 @@ export const readMeRows = () => {
   row('Sponsor', 'Optional. Accounts with this sponsor use this template automatically, unless the account has its own.');
   row('Template', 'Required. The justification text, written in Jinja: {{ value }} fills in a value, and {% for c in categories %} … {% endfor %} repeats text for each budget category.');
   row('MaxLength', 'Optional. The payment system’s character limit. Longer justifications are flagged.');
+  row('Fallback', 'Optional. The Name of a shorter template to use for an award whose justification would run over MaxLength.');
   row('Which template is used', 'The template named on the award’s row of the Awards sheet; else the first template for its draw account, else the first for its sponsor, else the first with neither. Picking a template for an award in Quick Draw writes its Name on the Awards sheet.');
+  gap();
+
+  heading('Payment systems sheet');
+  row('Name', 'Required. What to call the system on the button, such as PMS or Research.gov.');
+  row('URL', 'Required. The address to open, starting with https://.');
+  row('DrawAccount', 'Optional. Awards in this draw account use this system.');
+  row('Sponsor', 'Optional. Accounts with this sponsor use this system, unless the account has its own.');
+  row('Which system is used', 'The first row for the award’s draw account, else the first for its sponsor, else the first with neither. Without this sheet, Quick Draw links to PMS.');
   gap();
 
   heading('Values a template can use');
@@ -704,10 +780,32 @@ const readAwards = (records, warn) => {
       sponsor: cellText(record.Sponsor),
       account: cellText(record.DrawAccount),
       template: cellText(record.Template),
+      program: cellText(record.Program),
       row: record.row,
     });
   }
   return awards;
+};
+
+/** The Payment systems sheet: where each award's payment requests go, by draw account or sponsor. */
+const readSystems = (records, warn) => {
+  const list = [];
+  const byScope = new Map();
+  for (const record of records) {
+    const name = cellText(record.Name);
+    const url = cellText(record.URL);
+    if (!name && !url) continue;
+    if (!/^https?:\/\/\S+$/i.test(url)) {
+      warn(`Row ${record.row}${name ? ` (${name})` : ''} needs a URL starting with https://, so it is skipped.`, record.row);
+      continue;
+    }
+    const system = { name: name || url, url, account: cellText(record.DrawAccount), sponsor: cellText(record.Sponsor), row: record.row };
+    list.push(system);
+    const key = scopeKey(system.account, system.sponsor);
+    if (!byScope.has(key)) byScope.set(key, system);
+  }
+  const forAccount = (account, sponsor) => scopesFor(account, sponsor).map((scope) => byScope.get(scope)).find(Boolean) ?? null;
+  return { list, forAccount };
 };
 
 /** A template's display name: its Name, else its draw account or sponsor, else "Default". */
@@ -741,7 +839,8 @@ const readTemplates = (records, warn) => {
     if (compiled.error) warn(`The "${label}" template has an error. ${compiled.error.message}`, record.row);
     const note = singleBraceNote(text);
     if (note) warn(`The "${label}" template: ${note}`, record.row);
-    const template = { row: record.row, label, name, account, sponsor, text, maxLength, compiled };
+    const fallback = cellText(record.Fallback);
+    const template = { row: record.row, label, name, account, sponsor, text, maxLength, compiled, fallbackName: fallback };
     list.push(template);
     const key = scopeKey(account, sponsor);
     if (!byScope.has(key)) byScope.set(key, template);
@@ -756,6 +855,17 @@ const readTemplates = (records, warn) => {
     const key = name.trim().toUpperCase();
     return list.find((t) => t.name.toUpperCase() === key) ?? list.find((t) => t.label.toUpperCase() === key) ?? null;
   };
+  // A template's Fallback names a shorter one to use when an award runs over the limit.
+  for (const template of list) {
+    if (!template.fallbackName) continue;
+    template.fallback = named(template.fallbackName);
+    if (!template.fallback) {
+      warn(`The "${template.label}" template's Fallback, "${template.fallbackName}", is not a template on this sheet, so it is ignored.`, template.row);
+    } else if (template.fallback === template) {
+      template.fallback = null;
+      warn(`The "${template.label}" template names itself as its Fallback, so it is ignored.`, template.row);
+    }
+  }
   return { list, automatic, named };
 };
 
@@ -771,12 +881,13 @@ const readTemplates = (records, warn) => {
  * warnings, stats }. Each warning is { area, text, row? } where area is the tab
  * it belongs on: expenses, dictionary, awards, templates or report.
  */
-export const buildReport = ({ expenses, dictionary, templates, awards = [] }) => {
+export const buildReport = ({ expenses, dictionary, templates, awards = [], systems = [] }) => {
   const warnings = [];
   const warnFor = (area) => (text, row) => warnings.push({ area, text, row });
   const dict = readDictionary(dictionary, warnFor('dictionary'));
   const temps = readTemplates(templates, warnFor('templates'));
   const awardInfo = readAwards(awards, warnFor('awards'));
+  const payment = readSystems(systems, warnFor('systems'));
   const seenAwards = new Map(); // AWARD -> { award, account, sponsor } as first seen, for every award in the expenses
   const disagreements = new Map(); // AWARD -> text, when the expenses and the Awards sheet differ
 
@@ -906,6 +1017,7 @@ export const buildReport = ({ expenses, dictionary, templates, awards = [] }) =>
         );
       }
       const automatic = temps.automatic(account, sponsor);
+      const system = payment.forAccount(account, sponsor);
       const label = account || NO_ACCOUNT;
       const awardList = [];
       for (const entry of [...awards.values()].sort((a, b) => byText(a.award, b.award))) {
@@ -929,6 +1041,7 @@ export const buildReport = ({ expenses, dictionary, templates, awards = [] }) =>
           start: entry.start,
           end: entry.end,
           goal: awardInfo.get(idKey(entry.award))?.goal ?? '',
+          program: awardInfo.get(idKey(entry.award))?.program ?? '',
         };
         // The award's own template, if the Awards sheet names one that exists.
         const info = awardInfo.get(idKey(entry.award));
@@ -947,10 +1060,22 @@ export const buildReport = ({ expenses, dictionary, templates, awards = [] }) =>
         award.values = templateValues(award, account, sponsor);
         award.justification = '';
         award.error = null;
+        award.fallback = null;
         if (template && !template.compiled.error) {
           const result = template.compiled.render(award.values);
           if (result.error) award.error = result.error.message;
           else award.justification = result.text;
+          // Too long for the limit: use the template's shorter Fallback, if it has one.
+          const limit = template.maxLength;
+          const fallback = template.fallback;
+          if (!result.error && limit && result.text.length > limit && fallback && !fallback.compiled.error) {
+            const shorter = fallback.compiled.render(award.values);
+            if (!shorter.error) {
+              award.fallback = { from: template.label, to: fallback.label, length: result.text.length, limit };
+              award.justification = shorter.text;
+              award.template = { ...award.template, row: fallback.row, label: fallback.label, maxLength: fallback.maxLength ?? limit };
+            }
+          }
         } else if (template) {
           award.error = template.compiled.error.message;
         }
@@ -962,6 +1087,8 @@ export const buildReport = ({ expenses, dictionary, templates, awards = [] }) =>
         sponsor,
         label,
         sheetName: namer(label),
+        // Where this account's payment requests go, from the Payment systems sheet.
+        paymentSystem: system ? { name: system.name, url: system.url } : null,
         // The template the account's awards use unless they name their own.
         template: automatic ? { row: automatic.row, label: automatic.label, maxLength: automatic.maxLength } : null,
         awards: awardList,
@@ -1009,6 +1136,7 @@ export const buildReport = ({ expenses, dictionary, templates, awards = [] }) =>
     awardsSeen: [...seenAwards.entries()]
       .map(([key, a]) => ({ ...a, listed: awardInfo.has(key), goal: awardInfo.get(key)?.goal ?? '' }))
       .sort((a, b) => byText(a.award, b.award)),
+    paymentSystems: payment.list.map(({ name, url, account, sponsor }) => ({ name, url, account, sponsor })),
     templates: temps.list.map((t) => ({ row: t.row, label: t.label, account: t.account, sponsor: t.sponsor, maxLength: t.maxLength })),
     unmapped: unmappedList,
     unmappedCents: unmappedList.reduce((sum, u) => sum + u.cents, 0),

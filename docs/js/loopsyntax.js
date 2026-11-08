@@ -30,6 +30,10 @@ export const findLoops = (text) => {
 };
 
 const IF_LAST_AND_NOT_FIRST = /^\{%-?\s*if\s+loop\.last\s+and\s+not\s+loop\.first\s*-?%\}([^{]*)\{%-?\s*endif\s*-?%\}/;
+// What writeLoop puts before each item when there is text before the last one:
+// "A and B" for two items, "A, B, and C" for more.
+const LIST_JOIN =
+  /^\{%-?\s*if\s+not\s+loop\.first\s*-?%\}\{%-?\s*if\s+not\s+loop\.last\s*-?%\}([^{]*)\{%-?\s*elif\s+loop\.length\s*>\s*2\s*-?%\}[^{]*\{%-?\s*else\s*-?%\} ([^{]*)\{%-?\s*endif\s*-?%\}\{%-?\s*endif\s*-?%\}/;
 const IF_NOT_LAST = /\{%-?\s*if\s+not\s+loop\.last\s*-?%\}([^{]*)\{%-?\s*endif\s*-?%\}$/;
 
 /**
@@ -61,12 +65,19 @@ export const readLoop = (region) => {
   let body = region.slice(first.end, otherwise ? otherwise.start : last.start);
   let beforeLast = '';
   let between = '';
-  const lead = body.match(IF_LAST_AND_NOT_FIRST);
+  const join = body.match(LIST_JOIN);
+  if (join) {
+    between = join[1];
+    beforeLast = join[2];
+    body = body.slice(join[0].length);
+  }
+  // The older form: text before the last item, and the separator after each.
+  const lead = join ? null : body.match(IF_LAST_AND_NOT_FIRST);
   if (lead) {
     beforeLast = lead[1];
     body = body.slice(lead[0].length);
   }
-  const tail = body.match(IF_NOT_LAST);
+  const tail = join ? null : body.match(IF_NOT_LAST);
   if (tail) {
     between = tail[1];
     body = body.slice(0, tail.index);
@@ -81,12 +92,16 @@ export const readLoop = (region) => {
   };
 };
 
-/** Writes loop settings back as Jinja. The inverse of readLoop. */
+/**
+ * Writes loop settings back as Jinja. The inverse of readLoop. With text before
+ * the last item, a list reads like English: "A and B", or "A, B, and C".
+ */
 export const writeLoop = ({ target, iter, item, between = '', beforeLast = '', empty = null }) =>
   `{% for ${target} in ${iter} %}` +
-  (beforeLast ? `{% if loop.last and not loop.first %}${beforeLast}{% endif %}` : '') +
-  item +
-  (between ? `{% if not loop.last %}${between}{% endif %}` : '') +
+  (beforeLast
+    ? `{% if not loop.first %}{% if not loop.last %}${between}{% elif loop.length > 2 %}${between}${beforeLast}{% else %} ${beforeLast}{% endif %}{% endif %}` +
+      item
+    : item + (between ? `{% if not loop.last %}${between}{% endif %}` : '')) +
   (empty ? `{% else %}${empty}` : '') +
   '{% endfor %}';
 

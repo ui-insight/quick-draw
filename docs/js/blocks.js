@@ -34,10 +34,19 @@ const CONDITION_LABELS = {
 
 const squash = (text) => text.trim().replace(/\s+/g, ' ');
 
+/** Plain names for common expressions that aren't a single field. */
+const describeExpression = (expr) => {
+  const descriptions = expr.match(/^(\w+)\.codes \| map\("description"\)/);
+  if (descriptions) return descriptions[1] === 'c' ? "Category's descriptions" : 'Descriptions';
+  const names = expr.match(/^categories \| map\("name"\)/);
+  if (names) return 'Category names';
+  return null;
+};
+
 /** The label and kind for one scanned tag. */
 export const describeTag = (part) => {
   const inner = squash(part.inner ?? '');
-  if (part.type === 'output') return { kind: 'value', label: VALUE_LABELS[inner] ?? inner };
+  if (part.type === 'output') return { kind: 'value', label: VALUE_LABELS[inner] ?? describeExpression(inner) ?? inner };
   if (part.type === 'comment') return { kind: 'note', label: `Note: ${inner}` };
   const [word] = inner.split(' ');
   const rest = inner.slice(word.length).trim();
@@ -46,8 +55,10 @@ export const describeTag = (part) => {
       return { kind: 'loop', label: LOOP_LABELS[rest] ?? `For each ${rest}` };
     case 'endfor':
       return { kind: 'loop', label: 'End of repeat' };
-    case 'if':
+    case 'if': {
+      if (/^\w+\.codes \| map\("description"\)/.test(rest)) return { kind: 'logic', label: 'If it has descriptions' };
       return { kind: 'logic', label: CONDITION_LABELS[rest] ?? `If ${rest}` };
+    }
     case 'elif':
       return { kind: 'logic', label: `Or if ${rest}` };
     case 'else':

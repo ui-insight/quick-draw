@@ -12,17 +12,20 @@ Part of [AI4RA](https://ai4ra.uidaho.edu) at the University of Idaho.
 
 When you draw funds from a federal payment system, many sponsors ask for a short justification of what the money paid for. Writing one by hand for each award means pulling expenses, grouping them into the sponsor's budget categories, totaling them and typing a sentence that fits the payment system's character limit. Quick Draw does the grouping and the totals and drafts the sentence from your template. You review and edit each one before you use it.
 
+Since March 2025, the HHS Payment Management System (PMS) requires a justification of up to 1,000 characters with every payment request, and in October 2026 HHS published [Payment Justification Guidance for HHS Recipients](https://www.hhs.gov/sites/default/files/asfr-payment-justification-guidance-hhs-recipients.pdf), which sets what a justification must say. Quick Draw focuses on that requirement because it covers NIH. Other agencies, payment systems and sponsors ask for justifications too, with different character or word limits and different expectations for detail; a template for each, with its own character limit, handles that. The page's first tab, **0. Why justifications**, explains the requirement and links to the sources.
+
 It works with any financial system. Export your expenses with the columns below, and Quick Draw takes it from there.
 
 ## How it works
 
-The page walks you through five steps, one tab at a time:
+The page walks you through its steps, one tab at a time:
 
+0. **Why justifications.** What HHS requires, what other agencies ask for, and how Quick Draw helps, with links to the sources and payment systems.
 1. **Files.** Choose your expenses file and your data dictionary workbook, or drag them onto the page. **Load the sample files** shows how it works with made-up data.
 2. **Expenses.** See the rows as Quick Draw read them. Rows whose cost code is not in the dictionary are shaded.
 3. **Data dictionary.** See and edit each code's budget category, and each award's goal. A cost code in the expenses that the dictionary lacks is added for you, highlighted at the top of the table, with whatever Quick Draw already knows about it filled in. Give it a category, or type `Exclude` to leave its costs out on purpose.
 4. **Templates.** Write the justification wording in the template builder, with a live preview for a real award.
-5. **Report.** Tabs for each sponsor, each of its draw accounts, and each award, counting the awards left to copy. For each award, pick its template if it needs a different one, read its justification, its costs and a bar chart of them, and **Copy** it into the payment system. Copy first warns about anything to fix: costs whose code is not in the dictionary, a missing goal, or text over the character limit. You can fill in an award's goal or its own code descriptions right there; they are saved to the dictionary. Download a workbook with one sheet per draw account.
+5. **Report.** Tabs for each sponsor, each of its draw accounts, and each award, counting the awards left to copy. For each award, pick its template if it needs a different one, read its justification, its costs and a bar chart of them, and **Copy** it into the payment system. Copy first warns about anything to fix: costs whose code is not in the dictionary, a missing goal, or text over the character limit. You can fill in an award's goal or its own code descriptions right there; they are saved to the dictionary. **Open PMS** (or whichever system the award's account uses) beside Copy opens the payment system to paste into. Download a workbook with one sheet per draw account.
 
 You can edit both files in the page and save the changes. In Chrome and Edge, **Save** writes over the file you opened. In other browsers, download the edited file and use it in place of the old one.
 
@@ -37,6 +40,8 @@ Column names match without regard to case, spaces or underscores, so `CostCode`,
 ### 1. Expenses
 
 An Excel (`.xlsx`) or CSV file, one row per expense. Only the first sheet of a workbook is read.
+
+**Export only the costs in this draw**, from the day after your last draw, with the date each cost was incurred. The justification's amounts and dates come straight from this file, so an inception-to-date or year-to-date export would claim costs already paid. Include indirect costs (F&A) as their own rows if you draw them, and credits as negative amounts; leave out cost share and anything you won't draw (or give those codes the category `Exclude`). The page's **What to export** link has the details.
 
 | Column | Required | What it holds |
 |---|---|---|
@@ -57,6 +62,7 @@ An Excel workbook with these sheets. Quick Draw finds each one by its columns, s
 | **Cost codes** | Which sponsor budget category each cost code belongs to, with a plain-language description |
 | **Awards** | Each award's sponsor, draw account and short goal, and optionally which template it uses |
 | **Templates** | The justification wording, as many versions as you like |
+| **Payment systems** | Where each award's payment requests go, with the link its **Open** button uses |
 
 A CSV file also works as a dictionary, but it can only hold the cost codes. If you add goals or templates to one, it is saved as a workbook.
 
@@ -84,6 +90,7 @@ Quick Draw also warns you when two category names differ only by spacing, punctu
 | `Award` | yes | The award identifier, matching the expenses file |
 | `Sponsor` | no | The award's sponsor, used when the expenses don't give one |
 | `DrawAccount` | no | The award's draw account, used when the expenses don't give one |
+| `Program` | no | The award's program name, for agencies that ask for it, such as DOL. Templates write it with `{{ program }}`. |
 | `Goal` | no | A few words on what the award is for, such as "mapping groundwater recharge in the upper basin" |
 | `Template` | no | The `Name` of the template this award uses, when it should read differently from the rest of its account |
 
@@ -102,6 +109,29 @@ One row per template.
 | `Sponsor` | no | The sponsor whose accounts use this template automatically, unless an account has its own |
 | `Template` | yes | The justification text, in [Jinja](https://jinja.palletsprojects.com/en/stable/templates/) syntax |
 | `MaxLength` | no | The payment system's character limit, such as 1000. Justifications over it are flagged. |
+| `Fallback` | no | The `Name` of a shorter template to use for an award whose justification would run over `MaxLength`. The Report tab says when it was used. |
+
+#### Standard templates
+
+The editor's **Start from a standard** buttons, and the sample dictionary, use templates shaped by each agency's stated requirements:
+
+| Template | Follows | What it says |
+|---|---|---|
+| **HHS / NIH** | [HHS Payment Justification Guidance](https://www.hhs.gov/sites/default/files/asfr-payment-justification-guidance-hhs-recipients.pdf) (2026) | Each budget category with what it paid for, when the costs were incurred, and how they support the award's goal |
+| **HHS / NIH short** | The same | Categories only; the fallback when the full version is over the limit |
+| **DOL VETS** | [DOL VETS Grant Officer's Memorandum 02-26](https://www.dol.gov/sites/dolgov/files/VETS/files/GO_Memo_02-26_PMS_Mandatory_Payment_Justification.pdf) (2026) | The program, the period, and each category with its amount, adding up to the total |
+| **NASA** | [NASA Grant Information Circular 25-01](https://www.nasa.gov/wp-content/uploads/2025/06/gic-25-01-grant-payment-justifications.pdf) (2025) | The amount requested, the approved budget categories, and why |
+
+#### Payment systems sheet
+
+| Column | Required | What it holds |
+|---|---|---|
+| `Name` | yes | What the button says, such as PMS or Research.gov |
+| `URL` | yes | The address to open, starting with `https://` |
+| `DrawAccount` | no | Use this system for one draw account only |
+| `Sponsor` | no | Use this system for one sponsor's accounts, unless an account has its own |
+
+Each award's **Open** button on the Report tab uses the row for its draw account, else for its sponsor, else the row with neither. A dictionary without this sheet links to PMS. The sample sends everything to [PMS](https://pms.psc.gov/) and shows a row sending the sponsor NSF to [Research.gov](https://www.research.gov/).
 
 An award uses the template its row on the Awards sheet names. Otherwise it uses the first template for its draw account, else the first for its sponsor, else the first with neither. Picking a template for an award on the Report tab writes its name to the Awards sheet, so the choice is kept.
 
@@ -117,6 +147,7 @@ The Templates tab has two views of the same template. **Builder** shows each val
 |---|---|
 | `{{ award }}` | The award identifier |
 | `{{ account }}` and `{{ sponsor }}` | The draw account and its sponsor |
+| `{{ program }}` | The award's program name, from the Awards sheet |
 | `{{ start }}` and `{{ end }}` | The earliest and latest `CostDate` for the award, as MM/DD/YYYY |
 | `{{ total }}` | The total of all mapped costs, with no dollar sign |
 | `{{ costs }}` | Each budget category with its amount, such as `Salaries & Wages $12,400.00, Travel $850.00` |
@@ -165,7 +196,7 @@ Contributions are welcome by pull request, and bugs can be reported as [GitHub I
 
 ## Disclaimer
 
-Quick Draw is an independent project. It is not an official product of any sponsor, federal agency or payment system, and neither the U.S. National Science Foundation nor the University of Idaho endorses it. It drafts justifications from the files and templates you provide; the totals and text are provided as is, without warranty of any kind, and are not financial, accounting, legal or compliance advice. Review every total and justification against your financial system and the award terms before you submit it.
+Quick Draw is an independent project, not an official product of, or endorsed by, any sponsor, federal agency, payment system, NSF or the University of Idaho. It runs only in your browser and stores nothing: your files are never sent to AI4RA, the University of Idaho or anyone else. Its totals and text are provided as is, without warranty, and are not financial, legal or compliance advice; review them before you submit.
 
 ## License
 

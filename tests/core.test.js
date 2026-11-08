@@ -5,6 +5,8 @@ import { loadExcelJS } from './exceljs.js';
 import { buildWorkbook, readXlsxSheets } from '../docs/js/workbook.js';
 import {
   COLUMNS,
+  STANDARD_TEMPLATES,
+  compileTemplate,
   classifySheets,
   buildReport,
   categoryKey,
@@ -30,6 +32,7 @@ const samples = {
   dictionary: readTable(dictionarySheets[found.dictionary].grid, COLUMNS.dictionary, 'dictionary'),
   awards: readTable(dictionarySheets[found.awards].grid, COLUMNS.awards, 'awards'),
   templates: readTable(dictionarySheets[found.templates].grid, COLUMNS.templates, 'templates'),
+  systems: readTable(dictionarySheets[found.systems].grid, COLUMNS.systems, 'systems'),
 };
 const sampleReport = (extra = {}) => buildReport({ ...samples, ...extra });
 
@@ -91,12 +94,12 @@ test('sheet names are cleaned, shortened and unique', () => {
   assert.equal(name(''), 'Account');
 });
 
-test('the sample workbook has its three sheets', () => {
-  assert.deepEqual([...dictionarySheets].map((sheet) => String(sheet.name)), ['Read me', 'Cost codes', 'Awards', 'Templates']);
-  assert.deepEqual(found, { dictionary: 1, awards: 2, templates: 3 });
+test('the sample workbook has its sheets', () => {
+  assert.deepEqual([...dictionarySheets].map((sheet) => String(sheet.name)), ['Read me', 'Cost codes', 'Awards', 'Templates', 'Payment systems']);
+  assert.deepEqual(found, { dictionary: 1, awards: 2, templates: 3, systems: 4 });
   const readMe = dictionarySheets[0].grid;
   assert.equal(readMe[0][0], 'Quick Draw data dictionary');
-  assert.ok(readMe.some((row) => row[0] === 'The three sheets and what they are for'));
+  assert.ok(readMe.some((row) => row[0] === 'The sheets and what they are for'));
   assert.ok(readMe.length > 50);
 });
 
@@ -104,12 +107,12 @@ test('sheets are recognized by their columns before their names', () => {
   const sheet = (name, header) => ({ name, grid: [header] });
   assert.deepEqual(
     classifySheets([sheet('Notes', ['Anything']), sheet('Wording', ['Template']), sheet('Goals', ['Award', 'Goal']), sheet('Map', ['Cost Code', 'Budget Category'])]),
-    { dictionary: 3, awards: 2, templates: 1 }
+    { dictionary: 3, awards: 2, templates: 1, systems: -1 }
   );
-  assert.deepEqual(classifySheets([sheet('Awards', ['Award']), sheet('Codes', ['X'])]), { dictionary: 1, awards: 0, templates: -1 });
+  assert.deepEqual(classifySheets([sheet('Awards', ['Award']), sheet('Codes', ['X'])]), { dictionary: 1, awards: 0, templates: -1, systems: -1 });
   assert.deepEqual(
     classifySheets([sheet('A', ['Award', 'Goal', 'Template']), sheet('T', ['Name', 'Template']), sheet('C', ['CostCode', 'BudgetCategory', 'Award'])]),
-    { dictionary: 2, awards: 0, templates: 1 }
+    { dictionary: 2, awards: 0, templates: 1, systems: -1 }
   );
 });
 
@@ -119,7 +122,7 @@ test('sample files build the expected report', () => {
     ['ACCT-A', 'Sponsor A'],
     ['ACCT-B', 'Sponsor B'],
   ]);
-  assert.deepEqual(report.templates.map((t) => t.label), ['Standard', 'Itemized with descriptions', 'Short']);
+  assert.deepEqual(report.templates.map((t) => t.label), ['HHS and NIH', 'HHS and NIH, short', 'DOL VETS', 'NASA']);
 
   const [a, b] = report.accounts;
   const awd1001 = a.awards.find((w) => w.award === 'AWD-1001');
@@ -133,10 +136,11 @@ test('sample files build the expected report', () => {
     ]
   );
   assert.equal(awd1001.totalCents, 1176455);
-  assert.equal(a.template.label, 'Standard');
+  assert.equal(awd1001.template.label, 'HHS and NIH');
+  // The HHS template: each cost with what it paid for, when, and how it supports the award.
   assert.equal(
     awd1001.justification,
-    'Payment for Fringe Benefits $2,604.00, Materials & Supplies $148.10, Salaries & Wages $8,400.00, Travel $612.45, incurred 07/03/2026 through 08/14/2026 under award AWD-1001, for allowable costs in the approved budget to carry out mapping groundwater recharge in the upper basin. Total $11,764.55.'
+    'Payment for Fringe Benefits (employee benefits), Materials & Supplies (lab and field supplies), Salaries & Wages (personnel salaries), and Travel (travel to the annual project meeting) incurred 07/03/2026 through 08/14/2026 to support mapping groundwater recharge in the upper basin under award AWD-1001.'
   );
   // The award's own description of a code replaces the general one for that award only.
   const travel = awd1001.categories.find((c) => c.name === 'Travel').codes[0];
@@ -147,17 +151,18 @@ test('sample files build the expected report', () => {
 
   // An award with no goal gets the marker.
   const awd1002 = a.awards.find((w) => w.award === 'AWD-1002');
-  assert.match(awd1002.justification, /carry out \[describe the award's goal\]\./);
+  assert.match(awd1002.justification, /to support \[describe the award's goal\] under award AWD-1002\./);
   assert.deepEqual(report.awardsWithoutGoal, ['AWD-1002']);
 
-  // Sponsor B's mapping and template apply to ACCT-B; the description falls back to the general row.
+  // Sponsor B uses the DOL format: program, period, and each category's amount, adding up to the total.
   const awd2001 = b.awards[0];
-  assert.equal(b.template.label, 'Itemized with descriptions');
-  assert.equal(b.template.maxLength, 500);
+  assert.equal(b.template.label, 'DOL VETS');
   assert.equal(
     awd2001.justification,
-    'Drawdown for award AWD-2001: Fringe Benefits $1,116.00 (employee benefits); Materials & Supplies $285.40 (lab and field supplies); Other Direct Costs - Equipment Rental $950.00 (equipment rental); Salaries & Wages $3,600.00 (personnel salaries). Costs from 07/03/2026 to 08/02/2026 supporting training graduate students in field hydrology. Total $5,951.40.'
+    'These funds are for expenditures under the Sample Workforce Program, for the period 07/03/2026 to 08/02/2026, for fringe benefits ($1,116.00), materials & supplies ($285.40), other direct costs - equipment rental ($950.00), and salaries & wages ($3,600.00) as outlined in the grant award.'
   );
+  const listed = [...awd2001.justification.matchAll(/\$([\d,]+\.\d\d)/g)].reduce((sum, m) => sum + Math.round(Number(m[1].replace(/,/g, '')) * 100), 0);
+  assert.equal(listed, awd2001.totalCents);
   // A negative cost nets against the category.
   assert.equal(awd2001.categories.find((c) => c.name === 'Materials & Supplies').cents, 28540);
 
@@ -166,50 +171,38 @@ test('sample files build the expected report', () => {
 });
 
 test('an award can name its own template on the Awards sheet', () => {
-  const awards = csv('Award,Goal,Template\nAWD-1001,mapping groundwater recharge in the upper basin,short\nAWD-1002,,No such template', 'awards');
+  const awards = csv('Award,Goal,Template\nAWD-1001,mapping groundwater recharge in the upper basin,nasa\nAWD-1002,,No such template', 'awards');
   const report = sampleReport({ awards });
   const [a] = report.accounts;
   const [awd1001, awd1002] = a.awards;
-  assert.deepEqual([awd1001.template.label, awd1001.template.chosen, awd1001.template.automaticRow], ['Short', true, 2]);
-  assert.equal(awd1001.justification, 'Award AWD-1001: $11,764.55 for mapping groundwater recharge in the upper basin.');
-  assert.equal(awd1002.template.label, 'Standard');
+  assert.deepEqual([awd1001.template.label, awd1001.template.chosen, awd1001.template.automaticRow], ['NASA', true, 2]);
+  assert.equal(
+    awd1001.justification,
+    'Payment of $11,764.55 is requested for Fringe Benefits ($2,604.00), Materials & Supplies ($148.10), Salaries & Wages ($8,400.00), and Travel ($612.45) in accordance with the pre-approved budget categories of award AWD-1001, to support mapping groundwater recharge in the upper basin.'
+  );
+  assert.equal(awd1002.template.label, 'HHS and NIH');
   assert.match(report.warnings.filter((w) => w.area === 'awards').map((w) => w.text).join('\n'), /AWD-1002 names the template "No such template"/);
 });
 
-test('the Awards sheet supplies the account and sponsor the expenses leave out', () => {
-  const report = buildReport({
-    expenses: csv('Award,CostCode,Cost\nA1,C1,5\nA2,C1,7\nA3,C1,1', 'expenses'),
-    dictionary: csv('CostCode,BudgetCategory\nC1,Travel', 'dictionary'),
-    awards: csv('Award,Sponsor,DrawAccount,Goal\nA1,S1,X,first\nA2,S1,Y,second', 'awards'),
-    templates: csv('Name,Sponsor,Template\nS1 wording,S1,{{ sponsor }}/{{ account }}: {{ goal }}\nDefault,,plain {{ award }}', 'templates'),
-  });
-  assert.deepEqual(
-    report.accounts.map((a) => [a.label, a.sponsor, a.awards.map((w) => w.justification).join()]),
-    [
-      ['X', 'S1', 'S1/X: first'],
-      ['Y', 'S1', 'S1/Y: second'],
-      ['No draw account', '', 'plain A3'],
-    ]
+test('an award too long for its template uses the shorter fallback, and says so', () => {
+  const templates = csv(
+    'Name,Template,MaxLength,Fallback\nLong,{{ award }}: {{ costs }} plus a great deal more wording than will fit,40,Short\nShort,{{ award }}: ${{ total }},40,\nBroken,x,10,Nowhere',
+    'templates'
   );
-  assert.deepEqual(
-    report.awardsSeen.map((a) => [a.award, a.account, a.sponsor, a.listed]),
-    [
-      ['A1', 'X', 'S1', true],
-      ['A2', 'Y', 'S1', true],
-      ['A3', '', '', false],
-    ]
-  );
+  const report = sampleReport({ templates });
+  const award = report.accounts[0].awards[0];
+  assert.equal(award.justification, 'AWD-1001: $11,764.55');
+  assert.deepEqual(award.fallback, { from: 'Long', to: 'Short', length: award.fallback.length, limit: 40 });
+  assert.ok(award.fallback.length > 40);
+  assert.equal(award.template.label, 'Short');
+  assert.match(report.warnings.map((w) => w.text).join('\n'), /"Broken" template's Fallback, "Nowhere", is not a template/);
 });
 
-test('the expenses win when they disagree with the Awards sheet', () => {
-  const report = buildReport({
-    expenses: csv('Award,DrawAccount,CostCode,Cost\nA1,Z,C1,5', 'expenses'),
-    dictionary: csv('CostCode,BudgetCategory\nC1,Travel', 'dictionary'),
-    awards: csv('Award,DrawAccount\nA1,X', 'awards'),
-    templates: csv('Template\nok', 'templates'),
-  });
-  assert.equal(report.accounts[0].label, 'Z');
-  assert.match(report.warnings.map((w) => w.text).join('\n'), /draw account Z \(the Awards sheet says X\)\. The expenses are used\./);
+test('the standard templates all compile and stay within their limits for the samples', () => {
+  for (const t of STANDARD_TEMPLATES) {
+    const compiled = compileTemplate(t.text);
+    assert.equal(compiled.error, undefined, t.name);
+  }
 });
 
 test('a draw account row beats a sponsor row, which beats a general row', () => {
@@ -310,4 +303,29 @@ test('the downloaded report opens with a Read me saying what it holds', async ()
   assert.equal(readMe.get('Covers'), '3 awards in 2 draw accounts, $22,418.45 in all.');
   assert.equal(readMe.get('ACCT-B'), 'Draw account ACCT-B (Sponsor B): 1 award.');
   assert.match(readMe.get('Unmapped codes'), /\$75\.00 in 1 code not in the dictionary: C900/);
+});
+
+test('each account links to its payment system: account, then sponsor, then the default', () => {
+  const report = buildReport({
+    expenses: csv('Award,DrawAccount,Sponsor,CostCode,Cost\nA1,X,NSF,C1,1\nA2,Y,NIH,C1,1\nA3,Z,NIH,C1,1', 'expenses'),
+    dictionary: csv('CostCode,BudgetCategory\nC1,Travel', 'dictionary'),
+    templates: csv('Template\nok', 'templates'),
+    systems: csv('Name,URL,DrawAccount,Sponsor\nPMS,https://pms.psc.gov/,,\nResearch.gov,https://www.research.gov/,,NSF\nOther,https://example.org/,Z,\nBad,not a link,,', 'systems'),
+  });
+  assert.deepEqual(
+    report.accounts.map((a) => [a.account, a.paymentSystem?.name]),
+    [
+      ['X', 'Research.gov'],
+      ['Y', 'PMS'],
+      ['Z', 'Other'],
+    ]
+  );
+  assert.match(report.warnings.map((w) => w.text).join('\n'), /Row 5 \(Bad\) needs a URL starting with https/);
+});
+
+test('the sample sends everything to PMS', () => {
+  assert.deepEqual(sampleReport().accounts.map((a) => a.paymentSystem), [
+    { name: 'PMS', url: 'https://pms.psc.gov/' },
+    { name: 'PMS', url: 'https://pms.psc.gov/' },
+  ]);
 });

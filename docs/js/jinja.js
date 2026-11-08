@@ -394,6 +394,10 @@ const FILTERS = {
   join: (v, sep = '') => (Array.isArray(v) ? v.map(text).join(text(sep)) : text(v)),
   default: (v, fallback = '') => (v === null || v === undefined || v === '' ? fallback : v),
   replace: (v, from, to = '') => text(v).split(text(from)).join(text(to)),
+  // Jinja's select and reject with no test keep the items that are (or aren't) truthy.
+  select: (v) => (Array.isArray(v) ? v.filter(truthy) : v),
+  reject: (v) => (Array.isArray(v) ? v.filter((item) => !truthy(item)) : v),
+  unique: (v) => (Array.isArray(v) ? [...new Set(v.map((item) => (isRecord(item) ? item : text(item))))] : v),
   map: (v, attribute) => {
     if (!Array.isArray(v)) return v;
     return v.map((item) => (isRecord(item) && Object.hasOwn(item, attribute) ? item[attribute] : null));

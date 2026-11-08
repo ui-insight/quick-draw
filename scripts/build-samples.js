@@ -5,7 +5,7 @@
 import { writeFileSync } from 'node:fs';
 import { loadExcelJS } from '../tests/exceljs.js';
 import { writeXlsx } from '../docs/js/workbook.js';
-import { README_SHEET, readMeRows } from '../docs/js/core.js';
+import { README_SHEET, STANDARD_TEMPLATES, readMeRows } from '../docs/js/core.js';
 
 const costCodes = [
   ['CostCode', 'BudgetCategory', 'Description', 'DrawAccount', 'Sponsor', 'Award'],
@@ -20,28 +20,23 @@ const costCodes = [
 ];
 
 const awards = [
-  ['Award', 'Sponsor', 'DrawAccount', 'Goal', 'Template'],
-  ['AWD-1001', 'Sponsor A', 'ACCT-A', 'mapping groundwater recharge in the upper basin', ''],
-  ['AWD-2001', 'Sponsor B', 'ACCT-B', 'training graduate students in field hydrology', ''],
+  ['Award', 'Sponsor', 'DrawAccount', 'Program', 'Goal', 'Template'],
+  ['AWD-1001', 'Sponsor A', 'ACCT-A', '', 'mapping groundwater recharge in the upper basin', ''],
+  ['AWD-2001', 'Sponsor B', 'ACCT-B', 'Sample Workforce Program', 'training graduate students in field hydrology', ''],
 ];
 
+// The standard templates. HHS and NIH is the default; Sponsor B's account uses the DOL format.
+const sponsorFor = { 'DOL VETS': 'Sponsor B' };
 const templates = [
-  ['Name', 'DrawAccount', 'Sponsor', 'Template', 'MaxLength'],
-  [
-    'Standard',
-    '',
-    '',
-    'Payment for {{ costs }}, incurred {{ start }} through {{ end }} under award {{ award }}, for allowable costs in the approved budget to carry out {{ goal }}. Total ${{ total }}.',
-    1000,
-  ],
-  [
-    'Itemized with descriptions',
-    '',
-    'Sponsor B',
-    'Drawdown for award {{ award }}: {% for c in categories %}{{ c.name }} ${{ c.amount }} ({{ c.codes | map("description") | join(", ") }}){% if not loop.last %}; {% endif %}{% endfor %}. Costs from {{ start }} to {{ end }} supporting {{ goal }}. Total ${{ total }}.',
-    500,
-  ],
-  ['Short', '', '', 'Award {{ award }}: ${{ total }} for {{ goal }}.', 250],
+  ['Name', 'DrawAccount', 'Sponsor', 'Template', 'MaxLength', 'Fallback'],
+  ...STANDARD_TEMPLATES.map((t) => [t.name, '', sponsorFor[t.name] ?? '', t.text, t.maxLength, t.fallback ?? '']),
+];
+
+// Where payment requests go. PMS for everything by default; NSF shows a sponsor that draws elsewhere.
+const systems = [
+  ['Name', 'URL', 'DrawAccount', 'Sponsor'],
+  ['PMS', 'https://pms.psc.gov/', '', ''],
+  ['Research.gov', 'https://www.research.gov/', '', 'NSF'],
 ];
 
 const bytes = await writeXlsx(loadExcelJS(), [
@@ -49,6 +44,7 @@ const bytes = await writeXlsx(loadExcelJS(), [
   { name: 'Cost codes', grid: costCodes },
   { name: 'Awards', grid: awards },
   { name: 'Templates', grid: templates },
+  { name: 'Payment systems', grid: systems },
 ]);
 writeFileSync(new URL('../docs/samples/dictionary.xlsx', import.meta.url), Buffer.from(bytes));
 console.log('Wrote docs/samples/dictionary.xlsx');

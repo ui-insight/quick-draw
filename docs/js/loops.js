@@ -6,6 +6,7 @@ import { FIELDS, LIST_FIELDS, compileTemplate } from './core.js';
 import { loopLists, readLoop, writeLoop } from './loopsyntax.js';
 import { SNIPPET_TYPE, visualEditor } from './blocks.js';
 import { el, fill } from './dom.js';
+import { openGuide } from './guide.js';
 
 const out = (expr) => `{{ ${expr} }}`;
 
@@ -22,7 +23,7 @@ const paletteFor = (settings, vars) => {
       blocks: [
         { label: LIST_FIELDS.categories.fields.name.label, insert: out(`${target}.name`) },
         { label: LIST_FIELDS.categories.fields.amount.label, insert: out(`${target}.amount`), help: 'No dollar sign.' },
-        { label: "Category's descriptions", insert: `{{ ${target}.codes | map("description") | join(", ") }}`, help: 'The descriptions of the codes in this category.' },
+        { label: "Category's descriptions", insert: `{{ ${target}.codes | map("description") | select | unique | join(", ") }}`, help: 'The descriptions of the codes in this category.' },
       ],
     });
     groups.push({
@@ -230,7 +231,22 @@ export const openLoopDialog = (raw, { values, vars = [], path = ['Template'] }) 
       el(
         'div',
         { class: 'loop-head' },
-        crumbs,
+        el(
+          'div',
+          { class: 'loop-head-top' },
+          crumbs,
+          el(
+            'button',
+            {
+              type: 'button',
+              class: 'help-button',
+              'aria-label': 'Guide to loops',
+              title: 'Guide to loops',
+              onclick: () => openGuide('loops'),
+            },
+            '?'
+          )
+        ),
         title,
         intro,
         el('div', { class: 'loop-field inline' }, el('label', { for: id('list') }, 'Repeat for'), listSelect)
@@ -240,7 +256,7 @@ export const openLoopDialog = (raw, { values, vars = [], path = ['Template'] }) 
         'div',
         { class: 'loop-settings' },
         field(id('between'), 'Between items', between, 'Spaces count: ", " is a comma and a space.', choices(between, [['Comma', ', '], ['Semicolon', '; '], ['Space', ' '], ['None', '']], update)),
-        field(id('last'), 'Before the last item', beforeLast, 'Only when there are two or more.', choices(beforeLast, [['"and"', 'and '], ['"or"', 'or '], ['None', '']], update)),
+        field(id('last'), 'Before the last item', beforeLast, 'Two items read “A and B”; three or more, “A, B, and C”.', choices(beforeLast, [['"and"', 'and '], ['"or"', 'or '], ['None', '']], update)),
         field(id('empty'), 'If there are none', empty, 'Written instead when the list is empty.')
       ),
       el('div', { class: 'preview' }, el('div', { class: 'preview-head' }, el('span', { class: 'field-label' }, 'Preview')), preview, status),

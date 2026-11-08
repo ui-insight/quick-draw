@@ -11,10 +11,12 @@ import {
   singleBraceNote,
   tableLayout,
   templateLabel,
+  STANDARD_TEMPLATES,
 } from './core.js';
 import { scan } from './jinja.js';
 import { SNIPPET_TYPE, visualEditor } from './blocks.js';
 import { openLoopDialog } from './loops.js';
+import { openGuide } from './guide.js';
 import { el, fill, insertAtCaret, notice, tabStrip } from './dom.js';
 
 // ------------------------------------------------------------- blocks
@@ -71,7 +73,7 @@ const PALETTE = [
         })),
       {
         label: "Category's descriptions",
-        insert: '{{ c.codes | map("description") | join(", ") }}',
+        insert: '{{ c.codes | map("description") | select | unique | join(", ") }}',
         help: 'The descriptions of the codes in this category, separated by commas.',
       },
     ],
@@ -120,20 +122,8 @@ const PALETTE = [
   },
 ];
 
-const EXAMPLES = [
-  {
-    label: 'Simple sentence',
-    text: 'Payment for {{ costs }}, incurred {{ start }} through {{ end }} under award {{ award }}, for allowable costs in the approved budget to carry out {{ goal }}. Total ${{ total }}.',
-  },
-  {
-    label: 'Itemized by category',
-    text: 'Payment under award {{ award }} for {% for c in categories %}{% if loop.last and not loop.first %}and {% endif %}{{ c.name }} ${{ c.amount }}{% if not loop.last %}, {% endif %}{% endfor %}{% if start %}, incurred {{ start }} through {{ end }}{% endif %}, to carry out {{ goal }}. Total ${{ total }}.',
-  },
-  {
-    label: 'Categories with descriptions',
-    text: 'Award {{ award }}: {% for c in categories %}{{ c.name }} ${{ c.amount }} ({% for code in c.codes %}{{ code.description | default(code.code) }}{% if not loop.last %}, {% endif %}{% endfor %}){% if not loop.last %}; {% endif %}{% endfor %}. Total ${{ total }}, supporting {{ goal }}.',
-  },
-];
+// The editor starts from templates shaped by the agencies' requirements.
+const EXAMPLES = STANDARD_TEMPLATES.map((t) => ({ label: t.label, text: t.text, source: t.source, maxLength: t.maxLength }));
 
 // --------------------------------------------------------------- help
 
@@ -164,6 +154,12 @@ const helpSection = () =>
         { class: 'muted small' },
         el('strong', {}, 'Jinja'),
         ' shows the same template as the text saved in your workbook. Templates are saved on its Templates sheet when you save the dictionary.'
+      ),
+      el(
+        'p',
+        {},
+        el('button', { type: 'button', class: 'button small secondary', onclick: () => openGuide('templates') }, 'Read the guide'),
+        ' What templates and loops are, why you’d want loops, and how to get started, with examples.'
       )
     )
   );
@@ -258,6 +254,7 @@ const templateRows = (table) => {
       sponsor: get('Sponsor'),
       text: get('Template'),
       maxLength: get('MaxLength'),
+      fallback: get('Fallback'),
     });
   }
   return rows;
@@ -299,7 +296,7 @@ export const renderTemplates = (container, app) => {
     [...rows.map((r) => ({ key: r.index, label: r.label })), { key: 'new', label: '+ New template', className: 'tab-add' }],
     ui.templateRow,
     (key) => {
-      if (key === 'new') addTemplate({ Name: `Template ${rows.length + 1}`, Template: EXAMPLES[0].text });
+      if (key === 'new') addTemplate({ Name: `Template ${rows.length + 1}`, Template: EXAMPLES[0].text, MaxLength: EXAMPLES[0].maxLength });
       else {
         ui.templateRow = key;
         rerender();
@@ -339,6 +336,20 @@ export const renderTemplates = (container, app) => {
     app.onEdit();
     rerender();
   });
+  const fallbackSelect = el(
+    'select',
+    {
+      id: 'template-fallback',
+      onchange: (event) => {
+        app.setCell(current.index, 'Fallback', event.target.value);
+        app.onEdit();
+      },
+    },
+    el('option', { value: '', selected: !current.fallback }, 'Nothing (just warn)'),
+    rows
+      .filter((r) => r.index !== current.index)
+      .map((r) => el('option', { value: r.name || r.label, selected: Boolean(current.fallback) && [r.name, r.label].includes(current.fallback) }, r.label))
+  );
   const limitInput = el('input', { type: 'number', id: 'template-limit', min: 1, step: 1, value: current.maxLength, placeholder: 'None' });
   limitInput.addEventListener('input', () => {
     app.setCell(current.index, 'MaxLength', limitInput.value);
@@ -365,6 +376,16 @@ export const renderTemplates = (container, app) => {
       el('datalist', { id: 'template-sponsors' }, (app.sponsors ?? []).map((a) => el('option', { value: a })))
     ),
     el('div', { class: 'field narrow' }, el('label', { for: 'template-limit' }, 'Character limit'), limitInput),
+    el(
+      'div',
+      { class: 'field' },
+      el(
+        'label',
+        { for: 'template-fallback', title: 'When an award’s justification would run over the character limit, Quick Draw uses this shorter template instead, and says so on the Report tab.' },
+        'If too long, use'
+      ),
+      fallbackSelect
+    ),
     el(
       'div',
       { class: 'settings-actions' },
@@ -448,17 +469,18 @@ export const renderTemplates = (container, app) => {
   const examples = el(
     'div',
     { class: 'examples' },
-    el('span', { class: 'muted small' }, 'Start from:'),
+    el('span', { class: 'muted small', title: 'Templates shaped by each agency’s stated requirements. Point at one to see which.' }, 'Start from a standard:'),
     EXAMPLES.map((example) =>
       el(
         'button',
         {
           type: 'button',
           class: 'button small secondary',
-          title: example.text,
+          title: example.source,
           onclick: () => {
-            if (text.trim() && text !== example.text && !confirm('Replace the whole template with this example?')) return;
+            if (text.trim() && text !== example.text && !confirm('Replace the whole template with this one?')) return;
             changed(example.text);
+            if (!limitInput.value && example.maxLength) app.setCell(current.index, 'MaxLength', String(example.maxLength));
             rerender();
           },
         },
@@ -564,7 +586,27 @@ export const renderTemplates = (container, app) => {
   const editorColumn = el(
     'div',
     { class: 'editor-column' },
-    el('div', { class: 'editor-head' }, viewTabs, examples),
+    el(
+      'div',
+      { class: 'editor-head' },
+      el(
+        'div',
+        { class: 'view-and-help' },
+        viewTabs,
+        el(
+          'button',
+          {
+            type: 'button',
+            class: 'help-button',
+            'aria-label': 'Guide to writing templates',
+            title: 'Guide to writing templates',
+            onclick: () => openGuide('templates'),
+          },
+          '?'
+        )
+      ),
+      examples
+    ),
     editorNode,
     status,
     el(
