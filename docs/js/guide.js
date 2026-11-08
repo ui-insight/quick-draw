@@ -802,7 +802,7 @@ const CODES_GUIDE = {
         el('li', {}, b('Sponsors'), ': for every award from the sponsor.'),
         el('li', {}, b('Sponsors, the row with Sponsor blank'), ': the default for everyone else. The Default template box on the Templates tab sets it. Without one, an award with nothing else set has no justification, and the Report says so.')
       ),
-      p('Most dictionaries need only the default and a row for each sponsor with its own rules, such as DOL. Leave the rest blank. Draw accounts and sponsors in the expenses get rows added for you, and each tab’s DrawAccount, Sponsor, Award and Template cells suggest the values on the tabs to its right, so you mostly pick.')
+      p('Most dictionaries need only the default and a row for each sponsor with its own rules, such as DOL. Leave the rest blank. Draw accounts and sponsors in the expenses get rows added for you, and each tab’s Award, DrawAccount, Sponsor and Template cells suggest the values on the tabs to its right, so you mostly pick.')
     ),
     section(
       'd-saving',

@@ -324,7 +324,7 @@ export const renderDataTable = (container, options) => {
             {},
             el('th', { scope: 'col', class: 'row-number' }, 'Row'),
             appliesTo
-              ? el('th', { scope: 'col' }, el('span', { class: 'col-name', title: 'Which expenses this row is used for. Worked out from DrawAccount, Sponsor and Award; it isn’t saved in the file.' }, 'Applies to'))
+              ? el('th', { scope: 'col' }, el('span', { class: 'col-name', title: 'Which expenses this row is used for. Worked out from Award, DrawAccount and Sponsor; it isn’t saved in the file.' }, 'Applies to'))
               : null,
             visible.map((c) =>
               el('th', { scope: 'col', class: known.has(c) ? null : 'extra' }, el('span', { class: 'col-name', title: headingTip(c) }, columnName(c)), handle(c))

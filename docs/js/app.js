@@ -797,7 +797,7 @@ const renderExpenses = () => {
   updateSaveBar('expenses');
 };
 
-/** Where a Cost codes row applies, worked out from its DrawAccount, Sponsor and Award. */
+/** Where a Cost codes row applies, worked out from its Award, DrawAccount and Sponsor. */
 const codeRowScope = (index) => {
   const t = table('dictionary');
   const { positions } = tableLayout(t.grid, COLUMNS.dictionary);

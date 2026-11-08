@@ -78,9 +78,9 @@ A CSV file also works as a dictionary, but it can only hold the cost codes. If y
 | `CostCode` | yes | The cost code, matching the expenses file |
 | `BudgetCategory` | yes | The sponsor budget category, such as Salaries & Wages. Leave it blank on a row that names an `Award`. |
 | `Description` | no | What the code covers, in words a sponsor would understand |
+| `Award` | no | Fill it in, with a `Description`, to describe the code differently for one award. The row's category is not used. |
 | `DrawAccount` | no | Fill it in when one draw account categorizes the code differently |
 | `Sponsor` | no | Fill it in when one sponsor categorizes the code differently |
-| `Award` | no | Fill it in, with a `Description`, to describe the code differently for one award. The row's category is not used. |
 
 For each expense, Quick Draw uses the code's row for its draw account if there is one, else its row for the sponsor, else the row with neither. So list each code once with `DrawAccount` and `Sponsor` blank, and add a row only where an account or sponsor differs. A code's description is the award's own one if there is one, else the one on the most specific row that has a description. If two rows give the same code and scope different categories, the first one is used and you are warned.
 
@@ -121,7 +121,7 @@ Each draw account names its own payment system and link; Quick Draw has no built
 | `Sponsor` | no | The sponsor. Leave it blank on one row for the default. |
 | `Template` | no | The template this sponsor's awards use. On the row with `Sponsor` blank, the default template for everyone. |
 
-Draw accounts and sponsors found in the expenses get rows added for you. Each tab's `DrawAccount`, `Sponsor`, `Award` and `Template` cells suggest the values on the tabs to its right (Cost codes from Awards, Draw accounts and Sponsors; Awards from Draw accounts, Sponsors and Templates), so you mostly pick. The sample's default is HHS and NIH, and Sponsor B uses DOL VETS.
+Draw accounts and sponsors found in the expenses get rows added for you. Each tab's `Award`, `DrawAccount`, `Sponsor` and `Template` cells suggest the values on the tabs to its right (Cost codes from Awards, Draw accounts and Sponsors; Awards from Draw accounts, Sponsors and Templates), so you mostly pick. The sample's default is HHS and NIH, and Sponsor B uses DOL VETS.
 
 #### Which template an award uses
 

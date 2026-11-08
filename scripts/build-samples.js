@@ -8,15 +8,15 @@ import { writeXlsx } from '../docs/js/workbook.js';
 import { README_SHEET, STANDARD_TEMPLATES, readMeRows } from '../docs/js/core.js';
 
 const costCodes = [
-  ['CostCode', 'BudgetCategory', 'Description', 'DrawAccount', 'Sponsor', 'Award'],
+  ['CostCode', 'BudgetCategory', 'Description', 'Award', 'DrawAccount', 'Sponsor'],
   ['C100', 'Salaries & Wages', 'personnel salaries', '', '', ''],
   ['C110', 'Fringe Benefits', 'employee benefits', '', '', ''],
   ['C200', 'Travel', 'project travel', '', '', ''],
   ['C300', 'Materials & Supplies', 'lab and field supplies', '', '', ''],
   ['C400', 'Other Direct Costs - Services', 'contracted services', '', '', ''],
   ['C410', 'Other Direct Costs - Services', 'equipment rental', '', '', ''],
-  ['C410', 'Other Direct Costs - Equipment Rental', '', '', 'Sponsor B', ''],
-  ['C200', '', 'travel to the annual project meeting', '', '', 'AWD-1001'],
+  ['C410', 'Other Direct Costs - Equipment Rental', '', '', '', 'Sponsor B'],
+  ['C200', '', 'travel to the annual project meeting', 'AWD-1001', '', ''],
 ];
 
 const awards = [

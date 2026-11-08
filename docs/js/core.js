@@ -26,9 +26,10 @@ export const COLUMNS = {
     { name: 'CostCode', required: true },
     { name: 'BudgetCategory', required: true },
     { name: 'Description' },
+    // Most to least specific, like the Data dictionary's tabs.
+    { name: 'Award' },
     { name: 'DrawAccount' },
     { name: 'Sponsor' },
-    { name: 'Award' },
   ],
   awards: [
     { name: 'Award', required: true },
@@ -496,9 +497,9 @@ export const COLUMN_HELP = {
     CostCode: 'The cost code, exactly as it appears in the expenses.',
     BudgetCategory: `The sponsor budget category this code is totaled under, such as Travel. Type ${EXCLUDE} to leave the code’s costs out on purpose. Leave blank on a row that names an Award.`,
     Description: 'What the code pays for, in words a sponsor would understand. Templates can include it.',
-    DrawAccount: 'Fill in only to make this row apply to one draw account, when that account categorizes the code differently.',
-    Sponsor: 'Fill in only to make this row apply to one sponsor’s accounts, when that sponsor categorizes the code differently.',
     Award: 'Fill in, with a Description, to describe this code differently for one award. The row’s category is not used.',
+    DrawAccount: 'Fill in only to make this row apply to one draw account, when that account categorizes the code differently.',
+    Sponsor: 'Fill in only to make this row apply to one sponsor’s awards, when that sponsor categorizes the code differently.',
   },
   awards: {
     Award: 'The award or grant, exactly as it appears in the expenses.',
@@ -630,9 +631,9 @@ export const readMeRows = () => {
   row('CostCode', 'Required. Your institution’s expense or object code, as it appears in the expenses file.');
   row('BudgetCategory', 'Required, except on a row with an Award. The sponsor budget category the code is totaled under, such as Salaries & Wages.');
   row('Description', 'Optional. What the code covers, in words a sponsor would understand. Templates can include it.');
-  row('DrawAccount', 'Optional. Fill in to make the row apply only to awards drawn from that payment-system account. Leave blank otherwise.');
-  row('Sponsor', 'Optional. Fill in to make the row apply only to that sponsor’s draw accounts. Leave blank otherwise.');
   row('Award', 'Optional. Fill in, with a Description, to describe the code differently for one award. Its BudgetCategory is not used.');
+  row('DrawAccount', 'Optional. Fill in to make the row apply only to awards drawn from that payment-system account. Leave blank otherwise.');
+  row('Sponsor', 'Optional. Fill in to make the row apply only to that sponsor’s awards. Leave blank otherwise.');
   row('Which row is used', 'For each expense, Quick Draw uses the row for its draw account if there is one, else the row for its sponsor, else the row with neither. So list a code once with DrawAccount and Sponsor blank, and add a row only where an account or sponsor categorizes it differently.');
   row('Which description is used', 'The award’s own description of the code if there is one, else the description on the most specific row that has one.');
   row('Codes not listed', 'Costs whose code is not on this sheet are left out of the totals. Quick Draw lists them, with their dollars, so you can add them.');
