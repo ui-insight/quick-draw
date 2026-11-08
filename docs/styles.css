@@ -1928,3 +1928,12 @@ a.button {
 .guide-page .guide-section {
   scroll-margin-top: 12px;
 }
+
+.guide-quote ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.guide-quote li + li {
+  margin-top: 4px;
+}

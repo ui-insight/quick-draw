@@ -3,7 +3,7 @@
 // real template engine, with the same colored blocks the editor uses, so what
 // a guide shows is what Quick Draw would write.
 
-import { GOAL_MARKER, compileTemplate, parseDay, templateValues } from './core.js';
+import { GOAL_MARKER, STANDARD_TEMPLATES, compileTemplate, parseDay, templateValues } from './core.js';
 import { builderNodes } from './blocks.js';
 import { writeLoop } from './loopsyntax.js';
 import { el, fill } from './dom.js';
@@ -398,6 +398,13 @@ export const PAYMENT_SYSTEMS = [
   },
 ];
 
+// Copies kept in the repo, served beside the page, in case an agency moves its file.
+const SAVED = {
+  hhs: 'references/hhs-payment-justification-guidance-2026-10-07.pdf',
+  dol: 'references/dol-vets-go-memo-02-26-pms-payment-justification-2026-04-17.pdf',
+};
+const savedCopy = (key) => [' (', link(SAVED[key], 'saved copy'), ')'];
+
 const SOURCES = {
   hhs: 'https://www.hhs.gov/sites/default/files/asfr-payment-justification-guidance-hhs-recipients.pdf',
   pms: 'https://pms.psc.gov/',
@@ -408,12 +415,83 @@ const SOURCES = {
   acf: 'https://content.govdelivery.com/attachments/USACFOCC/2025/04/22/file_attachments/3237925/Defend%20the%20Spend%20Recipient%20Comms%20FINAL%204.22.25.pdf',
 };
 
-const ABOUT_TEMPLATE =
-  'Payment for {{ costs }}, incurred {{ start }} through {{ end }} under award {{ award }}, for allowable costs in the approved budget to carry out {{ goal }}. Total ${{ total }}.';
+// The HHS / NIH standard template, the one the sample dictionary uses by default.
+const ABOUT_TEMPLATE = STANDARD_TEMPLATES[0].text;
+
+const q = (text) => el('blockquote', { class: 'guide-quote' }, text);
+const qList = (items) => el('blockquote', { class: 'guide-quote' }, el('ul', {}, items.map((item) => el('li', {}, item))));
+
+/** HHS's own words, quoted from the guidance, for the window behind "Read HHS's wording". */
+const HHS_WORDING = {
+  kicker: 'HHS’s wording',
+  title: 'Payment Justification Guidance for HHS Recipients',
+  lead: () =>
+    p(el('span', { class: 'muted small' }, 'Quoted from version 1.0, published October 7, 2026. ', link(SOURCES.hhs, 'Open the full guidance'), savedCopy('hhs'), '.')),
+  sections: () => [
+    section(
+      'h-purpose',
+      'Purpose',
+      q('HHS requires discretionary grant or cooperative agreement recipients to submit a justification with each payment request. HHS reviews payment justifications to help ensure Federal funds are used for the purposes of their awards and in accordance with the terms and conditions of award and all applicable laws, regulations, and policy requirements.')
+    ),
+    section(
+      'h-standard',
+      'Standard for a sufficient payment justification',
+      q('A payment justification must provide enough information for HHS to understand what the recipient is requesting payment for and how the cost or activity relates to the award.'),
+      q('All payment requests must be for allowable costs and activities consistent with the terms and conditions of the award and applicable laws, regulations, and policies.')
+    ),
+    section(
+      'h-include',
+      'Information a payment justification must include',
+      qList([
+        'identify and describe the cost or activity consistent with applicable award requirements;',
+        'explain how the cost or activity supports the objectives and goals of the award;',
+        'include the timeframe when costs were incurred, as appropriate;',
+        'use plain language;',
+        'exclude confidential, sensitive, or personally identifiable information;',
+        'follow any additional payment justification requirements issued by your HHS Division, as applicable.',
+      ]),
+      q('Where a payment request contains multiple subaccounts, the justification associated with each subaccount must describe the costs or activities attributable to that subaccount. If a subaccount includes multiple types of costs, the justification should clearly summarize each type.'),
+      q('A justification must provide sufficient information to meet these requirements within the character limit available in PMS.')
+    ),
+    section(
+      'h-examples',
+      'Examples',
+      el('p', { class: 'guide-label' }, 'Insufficient'),
+      q('“Payment for staff salaries for July through September.” This justification identifies the cost and timeframe but does not explain how the personnel costs support the award.'),
+      el('p', { class: 'guide-label' }, 'Sufficient'),
+      q('“Payment for salary and fringe benefits for project staff from July through September to conduct the community outreach activities supported by this award.” This justification identifies the cost, timeframe, award activity, and connection to the award.'),
+      el('p', { class: 'guide-label' }, 'Also sufficient'),
+      qList([
+        '“Payment for equipment purchased in August, identified in the approved budget, that will be used to conduct laboratory testing under the award.”',
+        '“Payment for indirect facilities and administrative costs, calculated using the approved negotiated indirect cost rate agreement, that support essential operations for activities under this award during the current budget period.”',
+      ])
+    ),
+    section(
+      'h-sensitive',
+      'Protecting sensitive information',
+      q('Do not include confidential, sensitive, or personally identifiable information (PII) in a payment justification.'),
+      q('If HHS identifies prohibited sensitive information in a justification, HHS will require the recipient to remove the information and provide a revised justification.')
+    ),
+    section(
+      'h-review',
+      'HHS review of justifications',
+      q('Based on the available information, HHS will:'),
+      qList([
+        'approve the request when the available information provides a sufficient basis to determine that the payment appropriately relates to the award and meets applicable requirements;',
+        'request for additional information when additional information is needed to make a determination; or',
+        'reject the request when the available information establishes that the payment cannot be approved, including when requested costs are unallowable or inconsistent with award restrictions.',
+      ]),
+      q('Approval of a payment request does not constitute a final HHS determination of cost allowability.')
+    ),
+  ],
+};
+
+const wordingButton = (label = 'Read HHS’s wording') =>
+  el('button', { type: 'button', class: 'button small secondary', onclick: () => openGuide('hhs') }, label);
 
 const ABOUT_GUIDE = {
-  kicker: 'Background',
-  title: 'Why drawdown justifications?',
+  kicker: 'Requirements',
+  title: 'Drawdown justification requirements',
   lead: () =>
     el(
       'div',
@@ -429,170 +507,104 @@ const ABOUT_GUIDE = {
   sections: () => [
     section(
       'a-rule',
-      'Every payment request now needs a justification',
+      'The requirement',
       p(
-        'Recipients of HHS grants and cooperative agreements request their funds through the HHS ',
+        'Since March 17, 2025, every payment request in the HHS ',
         link(SOURCES.pms, 'Payment Management System (PMS)'),
-        '. Since March 17, 2025, PMS has a mandatory justification field on the payment request screen, at the grant subaccount level, limited to ',
+        ' needs a justification for each grant subaccount, up to ',
         b('1,000 characters'),
-        '. Each request is reviewed before it is paid.'
-      ),
-      p(
-        'The requirement comes from ',
+        ', and is reviewed before it is paid. It comes from ',
         link(SOURCES.eo, 'Executive Order 14222'),
-        ' (section 3(a), “Contract and Grant Justification”), which calls for a brief written justification for each payment. Other agencies that pay through PMS, such as NIH and NASA, apply it too.'
-      ),
-      p(
-        'On October 7, 2026, HHS published ',
-        link(SOURCES.hhs, 'Payment Justification Guidance for HHS Recipients'),
-        ' (version 1.0), which sets the minimum a justification must contain, starting from the standard above.'
-      )
-    ),
-    section(
-      'a-others',
-      'Not only HHS',
-      p(
-        'Other federal agencies, payment systems and sponsors ask for drawdown justifications too, each in its own way: some limit characters and some limit words, the limits differ, and so does how specific the justification has to be. ',
-        'Even agencies that pay through the same system differ. ',
-        link(SOURCES.nasa, 'NASA'),
-        ' asks for the amount, the approved budget category and why the payment is needed. The ',
-        link(SOURCES.dol, 'Department of Labor’s Veterans’ Employment and Training Service'),
-        ' asks for more: the program name, the date range, and each budget category with its own amount, adding up to the total requested.'
-      ),
-      p(
-        'Its example reads: “…for the period December 15 to 31, 2025, for salaries ($18,790.30), associated fringe benefits ($5,400.55), program related supplies ($54.00), and indirect costs ($1,560.70) as outlined in the grant award.” A category loop in Quick Draw writes exactly that kind of list, and its amounts always add up to the total.'
-      ),
-      p(
-        'Quick Draw focuses on the HHS requirement because it covers NIH, the largest federal funder of university research. But nothing in it is HHS-only: keep a template for each sponsor or payment system, worded to its rules, and set the template’s ',
-        b('Character limit'),
-        ' to match. Quick Draw counts characters, not words, so for a system with a word limit, check the length yourself.'
+        ', section 3(a). HHS agencies, including NIH, apply it, and so do other agencies that pay through PMS.'
       )
     ),
     section(
       'a-contents',
-      'What a justification must include',
-      p('At a minimum, according to the HHS guidance, a justification must:'),
-      el(
-        'ul',
-        {},
-        el('li', {}, 'identify and describe the cost or activity, consistent with the award’s requirements;'),
-        el('li', {}, 'explain how the cost or activity supports the objectives and goals of the award;'),
-        el('li', {}, 'include the timeframe when the costs were incurred, as appropriate;'),
-        el('li', {}, 'use plain language;'),
-        el('li', {}, 'exclude confidential, sensitive, or personally identifiable information;'),
-        el('li', {}, 'follow any additional requirements from your HHS Division.')
-      ),
-      p('When a request covers several subaccounts, each subaccount’s justification describes its own costs, and a subaccount with several kinds of costs summarizes each kind. All of it has to fit in the PMS character limit.'),
-      p('The guidance gives this pair of examples:'),
-      el(
-        'div',
-        { class: 'guide-compare' },
-        el('div', {}, el('p', { class: 'guide-label' }, 'Insufficient'), el('div', { class: 'preview-text example-bad' }, '“Payment for staff salaries for July through September.”'), p(el('span', { class: 'muted small' }, 'Names the cost and timeframe, but not how it supports the award.'))),
-        el(
-          'div',
-          {},
-          el('p', { class: 'guide-label' }, 'Sufficient'),
-          el('div', { class: 'preview-text' }, '“Payment for salary and fringe benefits for project staff from July through September to conduct the community outreach activities supported by this award.”'),
-          p(el('span', { class: 'muted small' }, 'Names the cost, timeframe, award activity, and the connection to the award.'))
-        )
-      ),
-      p(
-        'Agencies add their own expectations. ',
-        link(SOURCES.nih, 'NIH'),
-        ' asks why the funds are being drawn and how they are being used. ',
-        link(SOURCES.nasa, 'NASA'),
-        ' asks for the amount, the budget category from the approved budget, and why the payment is needed. An ',
-        link(SOURCES.acf, 'April 2025 notice to recipients'),
-        ' suggests the program name, the period covered, a summary of the approved expenses, and the budget categories, such as Personnel, Fringe, Supplies and Travel.'
-      )
+      'What it must include',
+      p('In HHS’s words, at a minimum, a payment justification must:'),
+      qList([
+        'identify and describe the cost or activity consistent with applicable award requirements;',
+        'explain how the cost or activity supports the objectives and goals of the award;',
+        'include the timeframe when costs were incurred, as appropriate;',
+        'use plain language;',
+        'exclude confidential, sensitive, or personally identifiable information;',
+        'follow any additional payment justification requirements issued by your HHS Division, as applicable.',
+      ]),
+      p('Each subaccount’s justification describes its own costs, summarizing each type, within the PMS character limit.'),
+      p(wordingButton(), el('span', { class: 'muted small' }, ' Examples of sufficient and insufficient justifications, sensitive information, and how HHS reviews them.'))
     ),
     section(
       'a-review',
       'What happens to it',
-      p('HHS reviews each justification, with other information it has, and then:'),
-      el(
-        'ul',
-        {},
-        el('li', {}, b('approves'), ' the request when there is a sufficient basis to show the payment relates to the award;'),
-        el('li', {}, b('asks for more information'), ' when it needs more to decide; or'),
-        el('li', {}, b('rejects'), ' the request, for example when the costs are unallowable or outside the award’s restrictions.')
-      ),
-      p('Approval is not a final ruling that the costs are allowable: they can still be reviewed in monitoring, audit or closeout. Vague justifications lead to requests for more information, and those delay payment.'),
+      p('HHS approves the request, asks for more information, or rejects it. Approval is not a final ruling on allowability, and vague justifications bring requests for more information, which delay payment.'),
       p(
         b('Justifications can be public.'),
-        ' The Department of Labor’s memo notes that recipients’ justifications and the agency’s approval comments are posted at ',
+        ' DOL notes that justifications and approval comments are posted at ',
         link('https://www.doge.gov/payments', 'doge.gov/payments'),
-        '. Write them for any reader, and keep names and other personal information out.'
+        '. Write for any reader, and keep personal information out.'
       )
     ),
     section(
-      'a-work',
-      'Why this is a lot of work',
+      'a-others',
+      'Other agencies',
       p(
-        'For each award, every time you draw, someone has to pull its expenses, group them into the sponsor’s budget categories, total them, and write a sentence that says what they paid for, when, and how they serve the award, in plain language and under 1,000 characters. Then do it again for the next award, across sponsors and payment accounts, every draw.'
-      ),
-      p('Writing each one by hand is slow, and it is easy for the wording, categories or totals to drift from award to award.')
+        'Other agencies, payment systems and sponsors ask for justifications too, with different character or word limits and different levels of detail. ',
+        link(SOURCES.nasa, 'NASA'),
+        ' asks for the amount, the approved budget category and why. ',
+        link(SOURCES.dol, 'DOL VETS'),
+        ' asks for the program, the date range, and each budget category with its own amount, adding up to the total. Quick Draw focuses on HHS because it covers NIH, the largest federal funder of university research; for other sponsors, use a template worded to their rules and set its character limit. Quick Draw counts characters, not words.'
+      )
     ),
     section(
       'a-help',
       'How Quick Draw helps',
-      p('Quick Draw does the grouping and totaling from your expenses and drafts each justification from your own wording. You review and edit every one before you use it.'),
+      p(
+        'Writing each justification by hand means pulling an award’s expenses, grouping them into the sponsor’s categories, totaling them and describing them, for every award and every draw. Quick Draw does the grouping and totaling and drafts each one from your wording; you review and edit before you use it.'
+      ),
       el(
         'table',
         { class: 'help-table guide-map' },
-        el('thead', {}, el('tr', {}, el('th', {}, 'The guidance asks for'), el('th', {}, 'In Quick Draw'))),
+        el('thead', {}, el('tr', {}, el('th', {}, 'Required'), el('th', {}, 'In Quick Draw'))),
         el(
           'tbody',
           {},
           [
-            ['The cost or activity', 'Your cost codes are grouped into the sponsor’s budget categories, with their descriptions, from your data dictionary.'],
-            ['How it supports the award', 'Each award’s Goal, kept on the Awards sheet, goes into the justification.'],
-            ['The timeframe', 'The earliest and latest dates of the award’s costs, from your expenses.'],
-            ['Plain language', 'Templates are your own words; Quick Draw only fills in the details.'],
-            ['No sensitive information', 'Quick Draw writes only what your template, dictionary and goals say, so keep names and other personal information out of them. Your files never leave your computer.'],
-            ['Division requirements', 'Keep a template for each sponsor or payment account, with its own wording.'],
-            ['One justification per subaccount', 'The Report tab groups awards by sponsor and draw account.'],
-            ['The character limit', 'Set it on each template; Quick Draw counts every justification and warns before you copy one that runs over.'],
+            ['The cost or activity', 'Cost codes grouped into budget categories, with their descriptions'],
+            ['How it supports the award', 'Each award’s Goal, from the Awards sheet'],
+            ['When', 'The earliest and latest dates of the award’s costs'],
+            ['Plain language', 'Your own template wording'],
+            ['No personal information', 'Only your template, descriptions and goals are written; keep names out of them'],
+            ['Agency rules and limits', 'A standard template per agency, each with its character limit and a shorter fallback'],
           ].map(([ask, answer]) => el('tr', {}, el('td', {}, b(ask)), el('td', {}, answer)))
         )
       ),
-      p('For example, from the sample files:'),
-      example(ABOUT_TEMPLATE, [{ label: 'Drafted for AWD-1001', values: AWARD_A }], { limit: 1000 })
+      example(ABOUT_TEMPLATE, [{ label: 'Drafted for AWD-1001 with the HHS / NIH standard template', values: AWARD_A }], { limit: 1000 })
     ),
     section(
       'a-systems',
       'Payment systems',
-      p('Where the justification goes depends on who pays the award. Copy each justification from Quick Draw and paste it into the request:'),
       el('ul', { class: 'guide-links' }, PAYMENT_SYSTEMS.map((s) => el('li', {}, link(s.url, s.name), ': ', s.who))),
-      p(
-        'In Quick Draw, the ',
-        b('Payment systems'),
-        ' sheet of your data dictionary says which system each sponsor or draw account uses, with its address. The Report tab’s ',
-        b('Open'),
-        ' button beside each justification goes straight there.'
-      ),
-      p(el('span', { class: 'muted small' }, 'Each system has its own fields and limits. Check the system’s guidance and your Notice of Award for what yours expects.'))
+      p('The Payment systems sheet of your data dictionary says which one each sponsor or draw account uses; the Open button beside each justification goes there.')
     ),
     section(
       'a-sources',
-      'Read the requirements',
+      'Sources',
       el(
         'ul',
         { class: 'guide-links' },
-        el('li', {}, link(SOURCES.hhs, 'Payment Justification Guidance for HHS Recipients'), ' (HHS, version 1.0, October 7, 2026)'),
-        el('li', {}, link(SOURCES.pms, 'Payment Management System (PMS)'), ', including the PMS User Guide and, after you sign in, the Payment Justification User Guide (Menu › Payment)'),
-        el('li', {}, link(SOURCES.eo, 'Executive Order 14222'), ', 90 FR 11095 (March 3, 2025), section 3(a)'),
+        el('li', {}, link(SOURCES.hhs, 'Payment Justification Guidance for HHS Recipients'), ' (HHS, v1.0, October 7, 2026)', savedCopy('hhs')),
+        el('li', {}, link(SOURCES.eo, 'Executive Order 14222'), ', 90 FR 11095, section 3(a)'),
         el('li', {}, link(SOURCES.nih, 'NIH Grants Policy Statement 6.1, NIH Payment Review Process')),
         el('li', {}, link(SOURCES.nasa, 'NASA Grant Information Circular 25-01'), ' (June 16, 2025)'),
-        el('li', {}, link(SOURCES.dol, 'DOL Veterans’ Employment and Training Service, Grant Officer’s Memorandum 02-26: PMS Mandatory Payment Request Justification'), ' (April 17, 2026)'),
-        el('li', {}, link(SOURCES.acf, 'Payment Management System: updated payment processing steps'), ' (notice to ACF recipients, April 22, 2025)')
+        el('li', {}, link(SOURCES.dol, 'DOL VETS Grant Officer’s Memorandum 02-26'), ' (April 17, 2026)', savedCopy('dol')),
+        el('li', {}, link(SOURCES.acf, 'PMS updated payment processing steps'), ' (notice to ACF recipients, April 22, 2025)')
       ),
       p(
-        'For help with PMS itself: the PMS Help Desk, ',
+        'PMS help: ',
         link('mailto:PMSSupport@psc.hhs.gov', 'PMSSupport@psc.hhs.gov'),
-        ' or 1-877-614-5533. For questions about a justification or an award, contact the Grants Management Specialist on your Notice of Award.'
+        ', 1-877-614-5533. Questions about an award: the Grants Management Specialist on your Notice of Award.'
       ),
-      p(el('span', { class: 'muted small' }, 'Quick Draw is an independent project, not affiliated with HHS or any agency. Requirements change; check your agency’s current guidance.'))
+      p(el('span', { class: 'muted small' }, 'Quick Draw is independent and not affiliated with any agency. Requirements change; check your agency’s current guidance.'))
     ),
   ],
 };
@@ -667,7 +679,7 @@ const EXPORT_GUIDE = {
   ],
 };
 
-const GUIDES = { templates: TEMPLATES_GUIDE, loops: LOOPS_GUIDE, about: ABOUT_GUIDE, export: EXPORT_GUIDE };
+const GUIDES = { templates: TEMPLATES_GUIDE, loops: LOOPS_GUIDE, about: ABOUT_GUIDE, export: EXPORT_GUIDE, hhs: HHS_WORDING };
 
 /** Renders a guide as a page inside `container`, for the tab that shows it. */
 export const renderGuidePage = (container, which) => {

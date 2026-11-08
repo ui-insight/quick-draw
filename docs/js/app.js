@@ -54,25 +54,13 @@ const TABLES = {
   systems: { file: 'dictionary', title: 'Payment systems' },
 };
 
-// The first visit opens on step 0, the background; after that, on Files.
-const SEEN_KEY = 'quick-draw:seen-why';
-function firstTab() {
-  try {
-    if (localStorage.getItem(SEEN_KEY)) return 'files';
-    localStorage.setItem(SEEN_KEY, 'yes');
-  } catch {
-    // Storage may be blocked; start on the background each time.
-  }
-  return 'why';
-}
-
 const STEPS = [
-  { key: 'why', label: 'Why justifications' },
   { key: 'files', label: 'Files' },
   { key: 'expenses', label: 'Expenses' },
   { key: 'dictionary', label: 'Data dictionary' },
   { key: 'templates', label: 'Templates' },
   { key: 'report', label: 'Report' },
+  { key: 'requirements', label: 'Requirements' },
 ];
 
 const state = {
@@ -87,7 +75,7 @@ const state = {
   edits: new Map(), // award key -> edited justification
   generated: new Map(), // award key -> drafted justification, to drop edits when the draft changes
   ui: {
-    tab: firstTab(),
+    tab: 'files',
     dictionaryView: 'dictionary',
     account: null,
     open: new Set(),
@@ -486,7 +474,7 @@ const dictionaryTip = (codes, goals, codeWarnings, awardWarnings) =>
 const countFor = (area) => state.warnings.filter((w) => w.area === area).length;
 
 const badgeFor = (key) => {
-  if (key === 'why') return {};
+  if (key === 'requirements') return {};
   const issue = (n, title) => (n ? { badge: String(n), badgeClass: 'warn', title } : {});
   const broken = (message) => ({ badge: '!', badgeClass: 'error', title: tip(message, 'Choose another file on the Files tab.') });
   if (key === 'files') {
@@ -523,7 +511,7 @@ const renderNav = () => {
   fill(
     $('#steps'),
     tabStrip(
-      STEPS.map((step, i) => ({ key: step.key, label: `${i}. ${step.label}`, ...badgeFor(step.key) })),
+      STEPS.map((step, i) => ({ key: step.key, label: `${i + 1}. ${step.label}`, ...badgeFor(step.key) })),
       state.ui.tab,
       go,
       { label: 'Steps', className: 'step-tabs' }
@@ -605,7 +593,7 @@ const renderFiles = () => {
       'p',
       { class: 'lead' },
       'HHS now requires a short justification with every payment request in PMS. Quick Draw drafts them from your expenses. ',
-      el('button', { type: 'button', class: 'link-button', onclick: () => go('why') }, 'Why justifications, and what they must say'),
+      el('button', { type: 'button', class: 'link-button', onclick: () => go('requirements') }, 'What the requirement says'),
       '.'
     ),
     el('p', { class: 'muted' }, 'Choose each file, or drag it onto its box. Your files are read in this browser and never uploaded.'),
@@ -1411,14 +1399,14 @@ const downloadWorkbook = async () => {
 
 // -------------------------------------------------------------- render
 
-const renderWhy = () => {
+const renderRequirements = () => {
   const holder = el('div');
-  fill(main(), holder, nextButton('why'));
+  fill(main(), holder);
   renderGuidePage(holder, 'about');
 };
 
 const RENDERERS = {
-  why: renderWhy,
+  requirements: renderRequirements,
   files: renderFiles,
   expenses: renderExpenses,
   dictionary: renderDictionary,
