@@ -6,7 +6,6 @@ import { FIELDS, LIST_FIELDS, compileTemplate } from './core.js';
 import { loopLists, readLoop, writeLoop } from './loopsyntax.js';
 import { SNIPPET_TYPE, visualEditor } from './blocks.js';
 import { el, fill } from './dom.js';
-import { openGuide } from './guide.js';
 
 const out = (expr) => `{{ ${expr} }}`;
 
@@ -234,18 +233,7 @@ export const openLoopDialog = (raw, { values, vars = [], path = ['Template'] }) 
         el(
           'div',
           { class: 'loop-head-top' },
-          crumbs,
-          el(
-            'button',
-            {
-              type: 'button',
-              class: 'help-button',
-              'aria-label': 'Guide to loops',
-              title: 'Guide to loops',
-              onclick: () => openGuide('loops'),
-            },
-            '?'
-          )
+          crumbs
         ),
         title,
         intro,

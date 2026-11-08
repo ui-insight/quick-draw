@@ -587,7 +587,7 @@ const fromAddress = () => {
   // Older links used #requirements for the Help tab.
   const tab = asked === 'requirements' ? 'help' : asked;
   state.ui.tab = STEPS.some((step) => step.key === tab) ? tab : 'files';
-  if (state.ui.tab === 'help') state.ui.helpView = ['dictionary', 'templates', 'export', 'glossary'].includes(sub) ? sub : 'requirements';
+  if (state.ui.tab === 'help') state.ui.helpView = ['dictionary', 'templates', 'loops', 'export', 'glossary'].includes(sub) ? sub : 'requirements';
   if (state.ui.tab === 'dictionary') {
     // #dictionary/systems was the Payment systems sheet, now Draw accounts.
     const view = sub === 'systems' ? 'accounts' : sub ?? '';
@@ -655,7 +655,7 @@ const renderFiles = () => {
         { class: 'slot-actions' },
         el('button', { type: 'button', class: 'button small', onclick: () => chooseFile(key) }, file ? 'Choose another' : 'Choose file'),
         info.canStartEmpty && !file ? el('button', { type: 'button', class: 'link-button', onclick: startEmptyDictionary }, 'or start an empty one') : null,
-        key === 'expenses' ? el('button', { type: 'button', class: 'link-button', onclick: () => openGuide('export') }, 'What to export') : null
+        key === 'expenses' ? linkTo('help', 'What to export', () => (state.ui.helpView = 'export')) : null
       ),
       status,
       file?.note ? el('p', { class: 'muted small' }, file.note) : null
@@ -790,7 +790,7 @@ const renderExpenses = () => {
       'p',
       { class: 'lead' },
       'Check the expenses read correctly. You can fix a value here; it changes this copy, which you can save. ',
-      el('button', { type: 'button', class: 'link-button', onclick: () => openGuide('export') }, 'What the export should contain'),
+      linkTo('help', 'What the export should contain', () => (state.ui.helpView = 'export')),
       '.'
     ),
     saveBar('expenses'),
@@ -878,7 +878,10 @@ const renderDictionary = () => {
     el('h2', {}, 'Data dictionary'),
     saveBar('dictionary'),
     tabStrip(
-      Object.entries(DICTIONARY_VIEWS).map(([key, v]) => ({ key, label: v.label, ...badgeForView(key) })),
+      Object.entries(DICTIONARY_VIEWS).map(([key, v]) => {
+        const badge = badgeForView(key);
+        return { key, label: v.label, ...badge, title: tip(v.intro, badge.title && `\n${badge.title}`) };
+      }),
       view,
       (key) => {
         state.ui.dictionaryView = key;
@@ -887,22 +890,20 @@ const renderDictionary = () => {
       },
       { label: 'Dictionary sheets', className: 'sub-tabs' }
     ),
-    el(
-      'div',
-      { class: 'lead-with-help' },
-      el('p', { class: 'lead' }, DICTIONARY_VIEWS[view].intro),
-      el(
-        'button',
-        { type: 'button', class: 'help-button', 'aria-label': 'How the data dictionary works', title: 'How the data dictionary works', onclick: () => openGuide('codes') },
-        '?'
-      )
-    ),
     t.error
       ? notice('error', `The ${DICTIONARY_VIEWS[view].label} sheet can’t be used`, [t.error])
       : [
           waitingHint(view),
           el('div', { id: 'tab-warnings', dataset: { area: view } }, warningNodes(view)),
           view === 'dictionary' ? codesTable(flagged) : view === 'awards' ? awardsTable(flagged) : keyTable(view, flagged),
+          el(
+            'p',
+            { class: 'table-about muted small' },
+            DICTIONARY_VIEWS[view].intro,
+            ' More in ',
+            linkTo('help', 'Help › Data dictionary', () => (state.ui.helpView = 'dictionary')),
+            '.'
+          ),
         ],
     el('div', { id: 'next-area' }, nextButton('dictionary'))
   );
@@ -1514,6 +1515,7 @@ const HELP_VIEWS = {
   requirements: { label: 'Requirements', guide: 'about' },
   dictionary: { label: 'Data dictionary', guide: 'codes' },
   templates: { label: 'Templates', guide: 'templates' },
+  loops: { label: 'Loops', guide: 'loops' },
   export: { label: 'Exporting', guide: 'export' },
   glossary: { label: 'Glossary', guide: 'glossary' },
 };

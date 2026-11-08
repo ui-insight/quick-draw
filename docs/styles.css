@@ -2454,3 +2454,9 @@ main.wrap {
     margin-bottom: 10px;
   }
 }
+
+/* What a dictionary sheet is for, under its table. */
+.table-about {
+  max-width: 72ch;
+  margin-top: 12px;
+}

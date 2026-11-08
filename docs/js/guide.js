@@ -1,5 +1,5 @@
-// The two guides: one page on templates (the ? on the Templates tab) and one
-// page on loops (the ? in the loop window). Every example is rendered by the
+// The guides shown on the Help tab: requirements, the data dictionary,
+// templates, loops, exporting and the glossary. Every example is rendered by the
 // real template engine, with the same colored blocks the editor uses, so what
 // a guide shows is what Quick Draw would write.
 
@@ -243,7 +243,7 @@ const TEMPLATES_GUIDE = {
           ' starts a blank one.'
         ),
         el('li', {}, b('Change the words'), ' until they sound like you. Delete what you don’t need, and drag in the values you do.'),
-        el('li', {}, b('Add a loop'), ' if you want a list: add ', chip('loop', 'Each category'), ' from Loops, then ', b('click it'), ' to write how one category reads and what goes between them. The ? in that window explains loops in detail.'),
+        el('li', {}, b('Add a loop'), ' if you want a list: add ', chip('loop', 'Each category'), ' from Loops, then ', b('click it'), ' to write how one category reads and what goes between them. Help › Loops explains them in detail.'),
         el('li', {}, b('Check the preview'), ' below the editor. Pick different awards, especially long ones, and set the ', b('Character limit'), ' to your payment system’s.'),
         el('li', {}, b('Save the dictionary'), ' to keep the template. Templates live on its Templates sheet.')
       ),
