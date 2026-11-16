@@ -306,23 +306,53 @@ export const visualEditor = (text, onInput, { onLoop, ifChoices: choices = [] } 
   // Blocks are atomic. Some browsers (Safari) let the caret into a block's
   // label; a delete that reaches one removes the whole block, and typing there
   // lands just after it.
+  // An If and its End if (and any Otherwise between) go together.
+  const withPartners = (blocks) => {
+    const doomed = new Set(blocks);
+    const stack = [];
+    for (const block of box.querySelectorAll('.chip')) {
+      if (block.dataset.loop) continue;
+      const word = block.dataset.raw.match(/^\{%-?\s*(\w+)/)?.[1];
+      if (word === 'if') stack.push([block]);
+      else if ((word === 'elif' || word === 'else') && stack.length) stack.at(-1).push(block);
+      else if (word === 'endif' && stack.length) {
+        const group = [...stack.pop(), block];
+        if (group.some((b) => doomed.has(b))) group.forEach((b) => doomed.add(b));
+      }
+    }
+    return doomed;
+  };
+
   box.addEventListener('beforeinput', (event) => {
-    const hit = new Set(
-      event
-        .getTargetRanges()
-        .flatMap((r) => [r.startContainer, r.endContainer])
-        .map(blockAt)
-        .filter(Boolean)
-    );
-    if (!hit.size) return;
+    const ranges = event.getTargetRanges().map((r) => {
+      const range = document.createRange();
+      range.setStart(r.startContainer, r.startOffset);
+      range.setEnd(r.endContainer, r.endOffset);
+      return range;
+    });
+    const touched = [...box.querySelectorAll('.chip')].filter((block) => ranges.some((r) => r.intersectsNode(block)));
+    if (!touched.length) return;
     event.preventDefault();
-    if (event.inputType.startsWith('delete')) {
-      for (const block of hit) block.remove();
-      onInput(serialize(box));
-    } else {
+    const deleting = event.inputType.startsWith('delete');
+    if (deleting || ranges.some((r) => !r.collapsed)) {
+      for (const range of ranges) {
+        const start = blockAt(range.startContainer);
+        const end = blockAt(range.endContainer);
+        if (start) range.setStartBefore(start);
+        if (end) range.setEndAfter(end);
+        range.deleteContents();
+      }
+      for (const block of withPartners(touched)) block.remove();
+      const selection = getSelection();
+      selection.removeAllRanges();
+      selection.addRange(ranges[0]);
+    }
+    if (!deleting) {
       outsideBlocks();
       if (event.data) document.execCommand('insertText', false, event.data);
+      else if (event.inputType === 'insertLineBreak') document.execCommand('insertLineBreak');
     }
+    onInput(serialize(box));
   });
   box.addEventListener('input', (event) => {
     if (event.target.matches?.('.if-value')) event.target.closest('.chip').dataset.raw = `{% if ${event.target.value} %}`;
@@ -374,16 +404,19 @@ export const visualEditor = (text, onInput, { onLoop, ifChoices: choices = [] } 
   // A block dragged from the template moves to where it's dropped, or is
   // removed if it's dropped anywhere else.
   let dragged = null;
+  let movedInside = false;
   box.addEventListener('dragstart', (event) => {
     const block = event.target.closest?.('.chip');
     if (!block || !box.contains(block)) return;
     dragged = block;
+    movedInside = false;
     event.dataTransfer.setData(SNIPPET_TYPE, block.dataset.raw);
     event.dataTransfer.effectAllowed = 'move';
   });
   box.addEventListener('dragend', () => {
     if (dragged && box.contains(dragged)) {
-      dragged.remove();
+      // Moved within the text: just this block. Dragged out: its partners too.
+      for (const block of movedInside ? [dragged] : withPartners([dragged])) block.remove();
       onInput(serialize(box));
     }
     dragged = null;
@@ -401,6 +434,7 @@ export const visualEditor = (text, onInput, { onLoop, ifChoices: choices = [] } 
     const snippet = event.dataTransfer.getData(SNIPPET_TYPE);
     if (!snippet) return; // Moving text or a block inside the editor: the browser handles it.
     event.preventDefault();
+    movedInside = Boolean(dragged);
     box.focus();
     const range = caretAt(event.clientX, event.clientY);
     if (range && box.contains(range.startContainer)) {

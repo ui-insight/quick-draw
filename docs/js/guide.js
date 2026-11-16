@@ -144,6 +144,147 @@ const LOOP_NESTED = writeLoop({ target: 'c', iter: 'categories', item: `${CATEGO
 const DATES_IF = '{% if start %}, incurred {{ start }} through {{ end }}{% endif %}';
 const FULL = `Payment under award {{ award }} for ${LOOP_LISTED}${DATES_IF}, to carry out {{ goal }}. Total \${{ total }}.`;
 
+// ------------------------------------------------------------ animations
+
+/**
+ * Plays `steps` ([show, ms] pairs) in a loop while `root` is on screen, with a
+ * Pause button. Starts paused when the system asks for reduced motion.
+ */
+const animated = (root, steps) => {
+  let at = 0;
+  let timer = null;
+  let visible = false;
+  let paused = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const button = el('button', { type: 'button', class: 'link-button small anim-toggle' });
+  const tick = () => {
+    if (!root.isConnected) return;
+    const [show, ms] = steps[at];
+    show();
+    at = (at + 1) % steps.length;
+    timer = setTimeout(tick, ms);
+  };
+  const sync = () => {
+    clearTimeout(timer);
+    button.textContent = paused ? '▶ Play' : '❚❚ Pause';
+    if (visible && !paused) tick();
+  };
+  button.addEventListener('click', () => {
+    paused = !paused;
+    sync();
+  });
+  new IntersectionObserver(([entry]) => {
+    visible = entry.isIntersecting;
+    sync();
+  }).observe(root);
+  steps[0][0]();
+  at = 1;
+  sync();
+  root.prepend(button);
+  return root;
+};
+
+const MARK = '\u0003';
+
+/** A loop at work: each category lights up as its piece is written into the sentence. */
+const loopAnimation = () => {
+  const template = `Payment for ${LOOP_LISTED}.`;
+  const list = el('ol', { class: 'anim-list' });
+  const listLabel = el('p', { class: 'guide-label' });
+  const output = el('div', { class: 'preview-text' });
+  const marked = writeLoop({ target: 'c', iter: 'categories', item: `${CATEGORY_ITEM}${MARK}`, between: ', ', beforeLast: 'and ' });
+  const steps = [];
+  for (const award of [AWARD_A, AWARD_B]) {
+    // The written list, one piece per category, separators included.
+    const pieces = [[]];
+    for (const node of rendered(marked, award)) {
+      const text = typeof node === 'string' ? node : node.textContent;
+      text.split(MARK).forEach((part, i) => {
+        if (i) pieces.push([]);
+        if (part) pieces.at(-1).push(typeof node === 'string' ? part : el('span', { class: 'filled' }, part));
+      });
+    }
+    const rows = award.categories.map((c) => el('li', {}, `${c.name} `, el('span', { class: 'muted' }, `$${c.amount}`)));
+    steps.push([
+      () => {
+        listLabel.textContent = `${award.award} has ${award.categories.length} categories`;
+        rows.forEach((r) => r.classList.remove('current', 'done'));
+        fill(list, ...rows);
+        fill(output, 'Payment for ');
+      },
+      900,
+    ]);
+    rows.forEach((row, i) => {
+      steps.push([
+        () => {
+          rows.forEach((r, j) => {
+            r.classList.toggle('current', j === i);
+            r.classList.toggle('done', j < i);
+          });
+          output.querySelector('.anim-new')?.classList.remove('anim-new');
+          output.append(el('span', { class: 'anim-new' }, ...pieces[i].map((n) => (typeof n === 'string' ? n : n.cloneNode(true)))));
+        },
+        1300,
+      ]);
+    });
+    steps.push([
+      () => {
+        rows.forEach((r) => {
+          r.classList.remove('current');
+          r.classList.add('done');
+        });
+        output.querySelector('.anim-new')?.classList.remove('anim-new');
+        output.append('.');
+      },
+      2600,
+    ]);
+  }
+  return animated(
+    el(
+      'div',
+      { class: 'guide-example guide-anim' },
+      el('p', { class: 'guide-label' }, 'Template'),
+      blocks(template),
+      listLabel,
+      list,
+      el('p', { class: 'guide-label' }, 'Written'),
+      output
+    ),
+    steps
+  );
+};
+
+const IF_DATES = '{% if start %}, incurred {{ start }} through {{ end }}{% endif %}';
+
+/** An If at work: the dated words come and go as Start date fills in and empties. */
+const ifAnimation = () => {
+  const shown = blocks(`Payment under award {{ award }}${IF_DATES}.`);
+  const ifBlocks = [...shown.querySelectorAll('.chip-logic')];
+  const dated = AWARD_A;
+  const undated = { ...AWARD_A, start: '', end: '' };
+  const words = el('span', { class: 'anim-cond' }, rendered(IF_DATES, dated));
+  const output = el('div', { class: 'preview-text' }, rendered('Payment under award {{ award }}', dated), words, '.');
+  const status = el('p', { class: 'anim-status' });
+  const show = (values) => () => {
+    const has = Boolean(values.start);
+    fill(
+      status,
+      has ? '✓ Start date is ' : '✗ Start date is ',
+      has ? el('span', { class: 'filled' }, values.start) : b('blank'),
+      has ? ', so the words inside the If are written.' : ', so everything between If and End if is left out.'
+    );
+    status.classList.toggle('off', !has);
+    ifBlocks.forEach((chip) => chip.classList.toggle('anim-off', !has));
+    words.classList.toggle('gone', !has);
+  };
+  return animated(
+    el('div', { class: 'guide-example guide-anim' }, el('p', { class: 'guide-label' }, 'Template'), shown, status, el('p', { class: 'guide-label' }, 'Written'), output),
+    [
+      [show(dated), 3000],
+      [show(undated), 3000],
+    ]
+  );
+};
+
 const section = (id, title, ...children) => el('section', { class: 'guide-section', id }, el('h3', {}, title), ...children);
 
 const TEMPLATES_GUIDE = {
@@ -203,17 +344,27 @@ const TEMPLATES_GUIDE = {
         b('one'),
         ' item should read, and Quick Draw repeats it for every item the award has, however many there are. It’s a mail merge for a list inside your sentence. One template, the right length for every award:'
       ),
-      el(
-        'div',
-        { class: 'guide-compare' },
-        el('div', {}, el('p', { class: 'guide-label' }, 'AWD-1001: four categories'), el('div', { class: 'preview-text' }, rendered(LOOP_LISTED, AWARD_A))),
-        el('div', {}, el('p', { class: 'guide-label' }, 'AWD-2001: two categories'), el('div', { class: 'preview-text' }, rendered(LOOP_LISTED, AWARD_B)))
-      ),
+      loopAnimation(),
       p(
         'Loops are green blocks. In your text, a loop shows as a single block, such as ',
         chip('loop', '↻ For each category: Category name $Category amount, …'),
         '. You can loop over the budget categories, or over the cost codes. A loop can hold another loop, for example to name the codes inside each category.'
       ),
+    ),
+    section(
+      'g-ifs',
+      'Ifs: words that need a value',
+      p(
+        'Some values can be blank: not every expense file has dates, and not every award has a program. Words around a blank value would read wrong, such as "incurred through". An ',
+        b('If'),
+        ' block keeps them out: everything between ',
+        chip('logic', 'If Start date exists'),
+        ' and ',
+        chip('logic', 'End if'),
+        ' is written only when that value isn’t blank.'
+      ),
+      ifAnimation(),
+      p('Add ', b('If … exists'), ' from Helpers, choose the value in its dropdown, and write the words before End if. Deleting either end removes both; the words between them stay.')
     ),
     section(
       'g-start',
