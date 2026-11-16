@@ -122,9 +122,9 @@ const loopWindow = ({ path, title, noun, item, between = '', beforeLast = '' }) 
   el(
     'div',
     { class: 'guide-loop', inert: true },
-    el('ol', { class: 'crumbs' }, path.map((step) => el('li', {}, step))),
+    path.length > 2 ? el('ol', { class: 'crumbs' }, path.map((step) => el('li', {}, step))) : null,
     el('p', { class: 'guide-loop-title' }, title),
-    el('p', { class: 'guide-label' }, `Write this once; it repeats for each ${noun}:`),
+    el('p', { class: 'guide-label' }, `Text for each ${noun}`),
     blocks(item),
     el(
       'div',
@@ -214,11 +214,6 @@ const TEMPLATES_GUIDE = {
         chip('loop', '↻ For each category: Category name $Category amount, …'),
         '. You can loop over the budget categories, or over the cost codes. A loop can hold another loop, for example to name the codes inside each category.'
       ),
-      p(
-        'Don’t need that much control? ',
-        chip('value', 'All costs as text'),
-        ' is a ready-made list of every category and amount, separated by commas. Use a loop when you want to choose the wording: "and" before the last item, semicolons, or the codes behind each category.'
-      )
     ),
     section(
       'g-start',
@@ -266,7 +261,7 @@ const TEMPLATES_GUIDE = {
         { class: 'guide-legend' },
         el('li', {}, chip('value', 'Award'), ' Blue blocks are ', b('values'), ', filled in for each award.'),
         el('li', {}, chip('loop', 'For each category'), ' Green blocks are ', b('loops'), ', written once and repeated for each item. Click one to change it.'),
-        el('li', {}, chip('logic', 'If there are dates'), ' Purple blocks are ', b('conditions'), ': text that appears only when something is there. ', b('Only if there are dates'), ' in Helpers is ready-made; other conditions are written in the Jinja view for now.')
+        el('li', {}, chip('logic', 'If Start date exists'), ' Purple blocks are ', b('conditions'), ': text that appears only when a value isn’t blank. Add ', b('If … exists'), ' from Helpers, pick the value in its dropdown, and write the text before End if.')
       ),
       p(
         b('Which template an award uses:'),
@@ -319,18 +314,17 @@ const LOOPS_GUIDE = {
         { label: 'For AWD-1001', values: AWARD_A },
         { label: 'For AWD-2001', values: AWARD_B },
       ]),
-      p(b('If there are none'), ' is written instead of the list when the award has no items to list. Leave it blank to write nothing.')
     ),
     section(
       'l-what-over',
       'What to repeat for',
-      p(b('Repeat for'), ' at the top of the window chooses the list:'),
+      p('Which list a loop repeats for is set by the loop block you add:'),
       el(
         'ul',
         {},
-        el('li', {}, b('Each budget category'), ': one item per category, with ', chip('value', 'Category name'), ', ', chip('value', 'Category amount'), ' and ', chip('value', 'Category’s descriptions'), '.'),
-        el('li', {}, b('Each cost code on the award'), ': one item per cost code, across all categories, with ', chip('value', 'Cost code'), ', ', chip('value', 'Code amount'), ', ', chip('value', 'Code description'), ' and ', chip('value', 'Code’s category'), '.'),
-        el('li', {}, b('Each cost code in this category'), ': only inside a category loop; the codes behind that one category.')
+        el('li', {}, b('Each category'), ': one item per category, with ', chip('value', 'Category name'), ', ', chip('value', 'Category amount'), ' and ', chip('value', 'Category’s descriptions'), '.'),
+        el('li', {}, b('Each cost code'), ': one item per cost code, across all categories, with ', chip('value', 'Cost code'), ', ', chip('value', 'Code amount'), ', ', chip('value', 'Code description'), ' and ', chip('value', 'Code’s category'), '.'),
+        el('li', {}, b('Each code in this category'), ': added inside a category loop; the codes behind that one category.')
       ),
       p('The block list on the left changes to match: it only offers blocks that make sense for one item of that list. Award values such as ', chip('value', 'Award'), ' are always there too.')
     ),

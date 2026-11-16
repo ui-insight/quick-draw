@@ -334,16 +334,6 @@ export const FIELDS = {
   start: { label: 'Start date', example: '07/03/2026', help: 'The earliest CostDate, as MM/DD/YYYY. Blank without dates.' },
   end: { label: 'End date', example: '08/14/2026', help: 'The latest CostDate, as MM/DD/YYYY. Blank without dates.' },
   total: { label: 'Total', example: '11,764.55', help: 'All mapped costs, with no dollar sign.' },
-  costs: {
-    label: 'All costs as text',
-    example: 'Fringe Benefits $2,604.00, Travel $612.45',
-    help: 'Every category and its amount, joined by commas. A shortcut for the category loop.',
-  },
-  descriptions: {
-    label: 'All descriptions as text',
-    example: 'employee benefits; project travel',
-    help: 'The dictionary descriptions of the codes behind the costs, joined by semicolons.',
-  },
   program: {
     label: 'Program name',
     example: 'Homeless Veterans’ Reintegration Program',
@@ -434,10 +424,6 @@ export const templateValues = (award, account, sponsor = '') => {
       category: c.name,
     }))
   );
-  const descriptions = [];
-  for (const code of codes) {
-    if (code.description && !descriptions.includes(code.description)) descriptions.push(code.description);
-  }
   return {
     award: award.award,
     account,
@@ -446,8 +432,6 @@ export const templateValues = (award, account, sponsor = '') => {
     start: formatDay(award.start),
     end: formatDay(award.end),
     total: formatAmount(award.totalCents),
-    costs: award.categories.map((c) => `${c.name} ${formatMoney(c.cents)}`).join(', '),
-    descriptions: descriptions.join('; '),
     goal: award.goal || GOAL_MARKER,
     categories,
     codes,

@@ -13,7 +13,7 @@ import {
   templateLabel,
 } from './core.js';
 import { scan } from './jinja.js';
-import { SNIPPET_TYPE, visualEditor } from './blocks.js';
+import { IF_SNIPPET, SNIPPET_TYPE, ifChoices, visualEditor } from './blocks.js';
 import { openLoopDialog } from './loops.js';
 import { confirmWindow, el, fill, insertAtCaret, notice, tabStrip } from './dom.js';
 
@@ -111,9 +111,9 @@ const PALETTE = [
         help: 'Inside a loop: 1 for the first item, 2 for the second, and so on.',
       },
       {
-        label: 'Only if there are dates',
-        insert: '{% if start %}, incurred {{ start }} through {{ end }}{% endif %}',
-        help: 'Writes the dates only when the expenses have a CostDate.',
+        label: 'If … exists',
+        insert: IF_SNIPPET,
+        help: 'Text written only when a value isn’t blank, such as dates or a program. Pick the value in its dropdown, then write the text before End if.',
         kind: 'logic',
       },
     ],
@@ -454,6 +454,7 @@ export const renderTemplates = (container, app) => {
   if (ui.templateView === 'builder') {
     const visual = visualEditor(text, changed, {
       onLoop: (raw) => openLoopDialog(raw, { values: previewValues(), vars: [], path: [current.label] }),
+      ifChoices: ifChoices(PALETTE[0].blocks),
     });
     disposeEditor = visual.dispose;
     insert = visual.insert;

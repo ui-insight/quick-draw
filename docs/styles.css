@@ -940,7 +940,8 @@ input.read-only {
   font-weight: normal;
 }
 
-.palette-chip {
+.palette-chip,
+.visual-input .chip {
   cursor: grab;
   padding: 4px 9px;
   font-size: 0.82rem;
@@ -1462,18 +1463,11 @@ dialog.loop-dialog::backdrop {
   font-weight: 600;
 }
 
-.loop-field.inline {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
 .loop-field label {
   font-size: 0.85rem;
   font-weight: 600;
 }
 
-.loop-field select,
 .loop-input input {
   font: inherit;
   font-size: 0.92rem;
@@ -1627,12 +1621,6 @@ table.data td.needs-value input {
   font-size: 0.85rem;
 }
 
-.loop-intro {
-  margin: 0 0 12px;
-  color: var(--muted);
-  max-width: 70ch;
-}
-
 /* ----------------------------------------------------------- tooltip */
 
 .tooltip {
@@ -1712,13 +1700,6 @@ button[title],
   display: flex;
   align-items: center;
   gap: 10px;
-}
-
-.loop-head-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
 }
 
 dialog.guide {
@@ -2463,4 +2444,16 @@ a.header-button {
 .table-about {
   max-width: 72ch;
   margin-top: 12px;
+}
+
+/* The value dropdown inside an "If there are…" block. */
+.chip .if-value {
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  padding: 0 2px;
+  margin-left: 2px;
+  cursor: pointer;
 }

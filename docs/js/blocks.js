@@ -10,6 +10,9 @@ import { el } from './dom.js';
 const SNIPPET_TYPE = 'application/x-quick-draw-snippet';
 export { SNIPPET_TYPE };
 
+/** The palette's "If … exists" block inserts this; the editor asks which value first. */
+export const IF_SNIPPET = '{% if … %}…{% endif %}';
+
 const VALUE_LABELS = {
   ...Object.fromEntries(Object.entries(FIELDS).map(([name, f]) => [name, f.label])),
   ...Object.fromEntries(Object.entries(LIST_FIELDS.categories.fields).map(([name, f]) => [`c.${name}`, f.label])),
@@ -29,7 +32,6 @@ const CONDITION_LABELS = {
   'loop.last and not loop.first': 'If the last of several',
   'loop.first': 'If the first item',
   'loop.last': 'If the last item',
-  start: 'If there are dates',
 };
 
 const squash = (text) => text.trim().replace(/\s+/g, ' ');
@@ -43,10 +45,12 @@ const describeExpression = (expr) => {
   return null;
 };
 
+const valueLabel = (expr) => VALUE_LABELS[expr] ?? describeExpression(expr) ?? expr;
+
 /** The label and kind for one scanned tag. */
 export const describeTag = (part) => {
   const inner = squash(part.inner ?? '');
-  if (part.type === 'output') return { kind: 'value', label: VALUE_LABELS[inner] ?? describeExpression(inner) ?? inner };
+  if (part.type === 'output') return { kind: 'value', label: valueLabel(inner) };
   if (part.type === 'comment') return { kind: 'note', label: `Note: ${inner}` };
   const [word] = inner.split(' ');
   const rest = inner.slice(word.length).trim();
@@ -55,10 +59,8 @@ export const describeTag = (part) => {
       return { kind: 'loop', label: LOOP_LABELS[rest] ?? `For each ${rest}` };
     case 'endfor':
       return { kind: 'loop', label: 'End of repeat' };
-    case 'if': {
-      if (/^\w+\.codes \| map\("description"\)/.test(rest)) return { kind: 'logic', label: 'If it has descriptions' };
-      return { kind: 'logic', label: CONDITION_LABELS[rest] ?? `If ${rest}` };
-    }
+    case 'if':
+      return { kind: 'logic', label: CONDITION_LABELS[rest] ?? `If ${valueLabel(rest)} exists` };
     case 'elif':
       return { kind: 'logic', label: `Or if ${rest}` };
     case 'else':
@@ -70,10 +72,38 @@ export const describeTag = (part) => {
   }
 };
 
-const chip = (raw, part) => {
-  const { kind, label } = describeTag(part);
-  return el('span', { class: `chip chip-${kind}`, contentEditable: 'false', dataset: { raw }, title: raw }, label);
+/** The value an "If … exists" tests, or undefined for other tags (including the loop helpers). */
+const ifValue = (part) => {
+  const match = part.type === 'tag' && squash(part.inner ?? '').match(/^if (.+)$/);
+  return match && !(match[1] in CONDITION_LABELS) ? match[1] : undefined;
 };
+
+const chip = (raw, part, choices) => {
+  const { kind, label } = describeTag(part);
+  const cond = ifValue(part);
+  if (cond === undefined || !choices?.length) return el('span', { class: `chip chip-${kind}`, contentEditable: 'false', draggable: true, dataset: { raw }, title: raw }, label);
+  // "If [value] exists": the value is a dropdown of what this window offers.
+  const options = choices.some((c) => c.expr === cond) ? choices : [{ expr: cond, label: valueLabel(cond) }, ...choices];
+  return el(
+    'span',
+    { class: `chip chip-${kind}`, contentEditable: 'false', draggable: true, dataset: { raw } },
+    'If ',
+    el(
+      'select',
+      { class: 'if-value', 'aria-label': 'Value to check' },
+      options.map((c) => el('option', { value: c.expr, selected: c.expr === cond }, c.label))
+    ),
+    ' exists'
+  );
+};
+
+/** The values an "If … exists" can test: the value blocks of a palette, by their expressions. */
+export const ifChoices = (blocks) =>
+  blocks
+    .filter((b) => (b.kind ?? 'value') === 'value')
+    .map((b) => ({ label: b.label, expr: b.insert.match(/^\{\{ (.+) \}\}$/)?.[1] }))
+    .filter((c) => c.expr && c.expr !== 'loop.index');
+
 
 /** A short reading of a loop's item text: its words, with values named and inner loops in brackets. */
 const itemSummary = (text) => {
@@ -112,6 +142,7 @@ const loopChip = (raw) =>
     {
       class: 'chip chip-loop loop-block',
       contentEditable: 'false',
+      draggable: true,
       dataset: { raw, loop: '1' },
       role: 'button',
       tabIndex: 0,
@@ -121,14 +152,17 @@ const loopChip = (raw) =>
     loopSummary(raw)
   );
 
-/** Builder content for a template: text nodes and blocks. Each whole loop is one block. */
-export const builderNodes = (text) => {
+/**
+ * Builder content for a template: text nodes and blocks. Each whole loop is one
+ * block. With `choices`, an "If … exists" block offers them in a dropdown.
+ */
+export const builderNodes = (text, choices) => {
   const nodes = [];
   const pieces = (from, to) => {
     const slice = text.slice(from, to);
     for (const part of scan(slice)) {
       const piece = slice.slice(part.start, part.end);
-      nodes.push(part.type === 'text' || part.type === 'unclosed' ? document.createTextNode(piece) : chip(piece, part));
+      nodes.push(part.type === 'text' || part.type === 'unclosed' ? document.createTextNode(piece) : chip(piece, part, choices));
     }
   };
   let position = 0;
@@ -141,9 +175,11 @@ export const builderNodes = (text) => {
   return nodes;
 };
 
-const builderHtml = (text) => {
+const builderHtml = (text, choices) => {
   const holder = el('div');
-  holder.append(...builderNodes(text));
+  holder.append(...builderNodes(text, choices));
+  // innerHTML keeps only the `selected` attribute, so mark the chosen option.
+  for (const select of holder.querySelectorAll('select')) select.selectedOptions[0]?.setAttribute('selected', '');
   return holder.innerHTML;
 };
 
@@ -189,9 +225,9 @@ const caretAt = (x, y) => {
  * A Builder editor. Returns { node, insert(snippet), dispose() }; `onInput(text)`
  * gets the template's Jinja text after every change. `onLoop(raw)` is called
  * when a loop block is clicked and resolves with its new Jinja, '' to remove
- * it, or null to leave it.
+ * it, or null to leave it. `ifChoices` are the values an "If … exists" can test.
  */
-export const visualEditor = (text, onInput, { onLoop } = {}) => {
+export const visualEditor = (text, onInput, { onLoop, ifChoices: choices = [] } = {}) => {
   const box = el('div', {
     class: 'visual-input',
     contentEditable: 'true',
@@ -200,7 +236,7 @@ export const visualEditor = (text, onInput, { onLoop } = {}) => {
     'aria-label': 'Template',
     spellcheck: true,
   });
-  box.append(...builderNodes(text));
+  box.append(...builderNodes(text, choices));
 
   let saved = null;
   const remember = () => {
@@ -236,24 +272,81 @@ export const visualEditor = (text, onInput, { onLoop } = {}) => {
     }
   };
 
-  const insert = (snippet) => {
-    restore();
-    insertHtml(builderHtml(snippet));
+  const blockAt = (node) => {
+    const block = (node?.nodeType === Node.ELEMENT_NODE ? node : node?.parentElement)?.closest('.chip');
+    return block && box.contains(block) ? block : null;
   };
 
-  box.addEventListener('input', () => onInput(serialize(box)));
+  // Nothing goes inside a block: a caret in one moves to just after it.
+  const outsideBlocks = () => {
+    const selection = getSelection();
+    const inside = blockAt(selection.rangeCount ? selection.anchorNode : null);
+    if (!inside) return;
+    const range = document.createRange();
+    range.setStartAfter(inside);
+    selection.removeAllRanges();
+    selection.addRange(range);
+  };
+
+  // An "If … exists" starts on the first value; its dropdown changes it.
+  const insertSnippet = (snippet) => {
+    outsideBlocks();
+    if (snippet === IF_SNIPPET) {
+      if (!choices.length) return;
+      snippet = `{% if ${choices[0].expr} %}…{% endif %}`;
+    }
+    insertHtml(builderHtml(snippet, choices));
+  };
+
+  const insert = (snippet) => {
+    restore();
+    insertSnippet(snippet);
+  };
+
+  // Blocks are atomic. Some browsers (Safari) let the caret into a block's
+  // label; a delete that reaches one removes the whole block, and typing there
+  // lands just after it.
+  box.addEventListener('beforeinput', (event) => {
+    const hit = new Set(
+      event
+        .getTargetRanges()
+        .flatMap((r) => [r.startContainer, r.endContainer])
+        .map(blockAt)
+        .filter(Boolean)
+    );
+    if (!hit.size) return;
+    event.preventDefault();
+    if (event.inputType.startsWith('delete')) {
+      for (const block of hit) block.remove();
+      onInput(serialize(box));
+    } else {
+      outsideBlocks();
+      if (event.data) document.execCommand('insertText', false, event.data);
+    }
+  });
+  box.addEventListener('input', (event) => {
+    if (event.target.matches?.('.if-value')) event.target.closest('.chip').dataset.raw = `{% if ${event.target.value} %}`;
+    onInput(serialize(box));
+  });
 
   const editLoop = async (block) => {
     if (!onLoop) return;
     const result = await onLoop(block.dataset.raw);
     if (result === null || result === undefined) return;
     if (result === '') block.remove();
-    else block.replaceWith(...builderNodes(result));
+    else block.replaceWith(...builderNodes(result, choices));
     onInput(serialize(box));
   };
   box.addEventListener('click', (event) => {
-    const block = event.target.closest('.loop-block');
-    if (block && box.contains(block)) editLoop(block);
+    const block = event.target.closest('.chip');
+    if (!block || !box.contains(block)) return;
+    if (block.dataset.loop) return editLoop(block);
+    if (event.target.closest('select')) return;
+    // Select the whole block, so Delete or Backspace removes it as one piece.
+    const range = document.createRange();
+    range.selectNode(block);
+    getSelection().removeAllRanges();
+    getSelection().addRange(range);
   });
   // Capture, so Enter on a focused loop block opens it instead of adding a line break.
   box.addEventListener(
@@ -276,12 +369,29 @@ export const visualEditor = (text, onInput, { onLoop } = {}) => {
   });
   box.addEventListener('paste', (event) => {
     event.preventDefault();
-    insertHtml(builderHtml(event.clipboardData.getData('text/plain')));
+    insertHtml(builderHtml(event.clipboardData.getData('text/plain'), choices));
+  });
+  // A block dragged from the template moves to where it's dropped, or is
+  // removed if it's dropped anywhere else.
+  let dragged = null;
+  box.addEventListener('dragstart', (event) => {
+    const block = event.target.closest?.('.chip');
+    if (!block || !box.contains(block)) return;
+    dragged = block;
+    event.dataTransfer.setData(SNIPPET_TYPE, block.dataset.raw);
+    event.dataTransfer.effectAllowed = 'move';
+  });
+  box.addEventListener('dragend', () => {
+    if (dragged && box.contains(dragged)) {
+      dragged.remove();
+      onInput(serialize(box));
+    }
+    dragged = null;
   });
   box.addEventListener('dragover', (event) => {
     if ([...event.dataTransfer.types].includes(SNIPPET_TYPE)) {
       event.preventDefault();
-      event.dataTransfer.dropEffect = 'copy';
+      event.dataTransfer.dropEffect = dragged ? 'move' : 'copy';
     }
     box.classList.add('drop-target');
   });
@@ -300,7 +410,7 @@ export const visualEditor = (text, onInput, { onLoop } = {}) => {
     } else {
       restore();
     }
-    insertHtml(builderHtml(snippet));
+    insertSnippet(snippet);
   });
 
   return {

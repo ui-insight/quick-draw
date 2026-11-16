@@ -213,7 +213,7 @@ test('an award can name its own template on the Awards sheet', () => {
 
 test('an award too long for its template uses the shorter fallback, and says so', () => {
   const templates = csv(
-    'Name,Template,MaxLength,Fallback\nLong,{{ award }}: {{ costs }} plus a great deal more wording than will fit,40,Short\nShort,{{ award }}: ${{ total }},40,\nBroken,x,10,Nowhere',
+    'Name,Template,MaxLength,Fallback\nLong,{{ award }}: {% for c in categories %}{{ c.name }} {% endfor %}plus a great deal more wording than will fit,40,Short\nShort,{{ award }}: ${{ total }},40,\nBroken,x,10,Nowhere',
     'templates'
   );
   const report = sampleReport({ templates, sponsors: defaultIs('Long') });
@@ -338,7 +338,7 @@ test('rows without a draw account use general mappings and the default template'
   const report = buildReport({
     expenses: csv('Award,CostCode,Cost\nA1,C1,1.10\nA1,C1,2.20', 'expenses'),
     dictionary: csv('CostCode,BudgetCategory\nC1,Travel', 'dictionary'),
-    templates: csv('Template\n{{ award }}: {{ costs }} = {{ total }} [{{ start }}]', 'templates'),
+    templates: csv('Template\n{{ award }}: {% for c in categories %}{{ c.name }} ${{ c.amount }}{% endfor %} = {{ total }} [{{ start }}]', 'templates'),
     sponsors: defaultIs(),
   });
   const [account] = report.accounts;
