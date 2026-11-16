@@ -333,7 +333,7 @@ const TEMPLATES_GUIDE = {
     ),
     section(
       'g-loops',
-      'Loops: lists that fit each award',
+      'Loops: the green blocks',
       p(
         'A justification usually lists where the money went: each budget category and its amount. But awards don’t spend in the same number of categories. AWD-1001 spent in four this month, AWD-2001 in two, and next month it changes. A sentence with a fixed number of blanks can’t fit them all.'
       ),
@@ -342,18 +342,15 @@ const TEMPLATES_GUIDE = {
         b('loop'),
         ' solves this. You write how ',
         b('one'),
-        ' item should read, and Quick Draw repeats it for every item the award has, however many there are. It’s a mail merge for a list inside your sentence. One template, the right length for every award:'
-      ),
-      loopAnimation(),
-      p(
-        'Loops are green blocks. In your text, a loop shows as a single block, such as ',
+        ' category reads, and Quick Draw repeats it for every category the award has. In your text, the whole loop is one green block, such as ',
         chip('loop', '↻ For each category: Category name $Category amount, …'),
-        '. You can loop over the budget categories, or over the cost codes. A loop can hold another loop, for example to name the codes inside each category.'
+        '. One template, the right length for every award.'
       ),
+      p(el('a', { href: '#help/loops' }, 'Help › Loops'), ' shows a loop at work and how to set one up, including lists of cost codes and loops inside loops.')
     ),
     section(
       'g-ifs',
-      'Ifs: words that need a value',
+      'Ifs: the purple blocks',
       p(
         'Some values can be blank: not every expense file has dates, and not every award has a program. Words around a blank value would read wrong, such as "incurred through". An ',
         b('If'),
@@ -389,7 +386,8 @@ const TEMPLATES_GUIDE = {
           ' starts a blank one.'
         ),
         el('li', {}, b('Change the words'), ' until they sound like you. Delete what you don’t need, and drag in the values you do.'),
-        el('li', {}, b('Add a loop'), ' if you want a list: add ', chip('loop', 'Each category'), ' from Loops, then ', b('click it'), ' to write how one category reads and what goes between them. Help › Loops explains them in detail.'),
+        el('li', {}, b('Add a loop'), ' if you want a list: add ', chip('loop', 'Each category'), ' from Loops, then ', b('click it'), ' to write how one category reads and what goes between them.'),
+        el('li', {}, b('Wrap optional words in an If,'), ' such as the dates, so they drop out when the value is blank.'),
         el('li', {}, b('Check the preview'), ' below the editor. Pick different awards, especially long ones, and set the ', b('Character limit'), ' to your payment system’s.'),
         el(
           'li',
@@ -397,7 +395,7 @@ const TEMPLATES_GUIDE = {
           b('Choose who uses it.'),
           ' Tick ',
           b('Default template'),
-          ' beside Builder and Jinja to use it for every award, or pick it in a Template column on the Data dictionary tab for one award, draw account or sponsor. The line under its name says who uses it.'
+          ' beside Builder and Jinja to use it for every award, or pick it in a Template column on the Data dictionary tab for one award, draw account or sponsor.'
         ),
         el('li', {}, b('Save the dictionary'), ' to keep the template. Templates live on its Templates sheet.')
       ),
@@ -407,13 +405,6 @@ const TEMPLATES_GUIDE = {
     section(
       'g-more',
       'Good to know',
-      el(
-        'ul',
-        { class: 'guide-legend' },
-        el('li', {}, chip('value', 'Award'), ' Blue blocks are ', b('values'), ', filled in for each award.'),
-        el('li', {}, chip('loop', 'For each category'), ' Green blocks are ', b('loops'), ', written once and repeated for each item. Click one to change it.'),
-        el('li', {}, chip('logic', 'If Start date exists'), ' Purple blocks are ', b('conditions'), ': text that appears only when a value isn’t blank. Add ', b('If … exists'), ' from Helpers, pick the value in its dropdown, and write the text before End if.')
-      ),
       p(
         b('Which template an award uses:'),
         ' set in the data dictionary’s Template columns. The first one found wins: the award’s own (on Awards, or with the Template menu on the Report), else its draw account’s, else its sponsor’s, else the default, on the Sponsors row with Sponsor blank. The line under a template’s name says who uses it.'
@@ -440,31 +431,33 @@ const LOOPS_GUIDE = {
   sections: () => [
     section(
       'l-what',
-      'The loop window',
+      'How a loop works',
       p(
-        'A loop writes the same words once for each item in a list. Click a green loop block in the template and a window opens. In it you write the words for ',
-        b('one'),
-        ' item, using that item’s blocks, and Quick Draw repeats them for every item the award has.'
+        'A loop writes the same words once for each item in a list. Here the loop lists the award’s budget categories: each category takes its turn, and its words are added to the sentence. The same template then fits an award with two categories.'
       ),
-      loopWindow({ path: ['Template', 'Each budget category'], title: 'Each budget category', noun: 'category', item: CATEGORY_ITEM }),
-      p('The window’s preview shows the whole list for the award selected in the template preview.')
+      loopAnimation()
     ),
     section(
       'l-between',
-      'Between items, and before the last',
-      p('With nothing between them, the items run together:'),
-      example(LOOP_RUN_TOGETHER, [{ label: 'For AWD-1001', values: AWARD_A }]),
+      'The loop window',
       p(
-        b('Between items'),
-        ' goes between one item and the next, such as a comma and a space. ',
-        b('Before the last item'),
-        ' goes in front of the last one, such as "and ", so the list reads like a sentence: two items become "A and B", three or more "A, B, and C". Spaces count, so ", " is a comma and a space. The buttons beside each setting fill in the common choices.'
+        'Click a green loop block in the template and the loop window opens. Write the words for ',
+        b('one'),
+        ' item, using the blocks on its left, then say what goes between items:'
       ),
       loopWindow({ path: ['Template', 'Each budget category'], title: 'Each budget category', noun: 'category', item: CATEGORY_ITEM, between: ', ', beforeLast: 'and ' }),
+      p(
+        b('Between items'),
+        ' goes between one item and the next, such as a comma and a space; spaces count. ',
+        b('Before the last item'),
+        ' goes in front of the last one, such as "and ", so two items read "A and B" and three or more "A, B, and C". The buttons beside each setting fill in the common choices, and the window’s preview shows the whole list for the award picked in the template preview.'
+      ),
       example(LOOP_LISTED, [
         { label: 'For AWD-1001', values: AWARD_A },
         { label: 'For AWD-2001', values: AWARD_B },
       ]),
+      p('With both left empty, the items run together:'),
+      example(LOOP_RUN_TOGETHER, [{ label: 'For AWD-1001', values: AWARD_A }])
     ),
     section(
       'l-what-over',
@@ -477,7 +470,7 @@ const LOOPS_GUIDE = {
         el('li', {}, b('Each cost code'), ': one item per cost code, across all categories, with ', chip('value', 'Cost code'), ', ', chip('value', 'Code amount'), ', ', chip('value', 'Code description'), ' and ', chip('value', 'Code’s category'), '.'),
         el('li', {}, b('Each code in this category'), ': added inside a category loop; the codes behind that one category.')
       ),
-      p('The block list on the left changes to match: it only offers blocks that make sense for one item of that list. Award values such as ', chip('value', 'Award'), ' are always there too.')
+      p('The window’s blocks match: it offers only what makes sense for one item of that list, plus the award values such as ', chip('value', 'Award'), '.')
     ),
     section(
       'l-nested',
